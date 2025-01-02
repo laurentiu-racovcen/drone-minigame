@@ -7,6 +7,9 @@ using namespace m1;
 
 #define SKY_COLOR         0.6705, 0.788, 0.8529
 
+#define CAMERA_TO_DRONE_DIST_OX 6.5
+#define CAMERA_TO_DRONE_DIST_OY 1.25
+
 Tema2::Tema2()
 {
 }
@@ -17,9 +20,19 @@ Tema2::~Tema2()
 
 void Tema2::Init()
 {
+    // initialize the drone camera
+    //camera = new implemented::DroneCamera();
+    //camera->Set(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+
+    //float fov = RADIANS(100);
+    //float zNear = 0.01f;
+    //float zFar = 100.0f;
+
+    //projectionMatrix = glm::perspective(fov, window->props.aspectRatio, zNear, zFar);
+
     // initialize propellers angle
     drone.propellersAngle = 0;
-    drone.AngleOY = 0;
+    drone.angleOY = 0;
 
     // initialize drone coordinates
     drone.position = glm::vec3(0, 0, 0);
@@ -27,7 +40,6 @@ void Tema2::Init()
 	AddDroneMesh();
     AddDronePropellerMesh();
 }
-
 
 void Tema2::FrameStart()
 {
@@ -54,7 +66,8 @@ void Tema2::Update(float deltaTimeSeconds)
 
     glm::mat4 droneMatrix = glm::mat4(1);
     droneMatrix *= transform3D::Translate(drone.position.x, drone.position.y, drone.position.z);
-    droneMatrix *= transform3D::RotateOY(drone.AngleOY);
+    droneMatrix *= transform3D::RotateOY(drone.angleOY);
+    droneMatrix *= transform3D::RotateOY(0.785f);
 
     // render the drone
     RenderMesh(meshes["drone"], shaders["VertexColor"], droneMatrix);
@@ -62,7 +75,8 @@ void Tema2::Update(float deltaTimeSeconds)
     // render propeller 1
     glm::mat4 propeller1Matrix = glm::mat4(1);
     propeller1Matrix *= transform3D::Translate(drone.position.x, drone.position.y, drone.position.z);
-    propeller1Matrix *= transform3D::RotateOY(drone.AngleOY);
+    propeller1Matrix *= transform3D::RotateOY(drone.angleOY);
+    propeller1Matrix *= transform3D::RotateOY(0.785f);
     propeller1Matrix *= transform3D::Translate(-0.9f, 0.34f, 0);
     propeller1Matrix *= transform3D::RotateOY(drone.propellersAngle);
 
@@ -71,7 +85,8 @@ void Tema2::Update(float deltaTimeSeconds)
     // render propeller 2
     glm::mat4 propeller2Matrix = glm::mat4(1);
     propeller2Matrix *= transform3D::Translate(drone.position.x, drone.position.y, drone.position.z);
-    propeller2Matrix *= transform3D::RotateOY(drone.AngleOY);
+    propeller2Matrix *= transform3D::RotateOY(drone.angleOY);
+    propeller2Matrix *= transform3D::RotateOY(0.785f);
     propeller2Matrix *= transform3D::Translate(0.9f, 0.34f, 0);
     propeller2Matrix *= transform3D::RotateOY(drone.propellersAngle);
 
@@ -80,7 +95,8 @@ void Tema2::Update(float deltaTimeSeconds)
     // render propeller 3
     glm::mat4 propeller3Matrix = glm::mat4(1);
     propeller3Matrix *= transform3D::Translate(drone.position.x, drone.position.y, drone.position.z);
-    propeller3Matrix *= transform3D::RotateOY(drone.AngleOY);
+    propeller3Matrix *= transform3D::RotateOY(drone.angleOY);
+    propeller3Matrix *= transform3D::RotateOY(0.785f);
     propeller3Matrix *= transform3D::Translate(0, 0.34f, -0.9f);
     propeller3Matrix *= transform3D::RotateOY(drone.propellersAngle);
 
@@ -89,7 +105,8 @@ void Tema2::Update(float deltaTimeSeconds)
     // render propeller 4
     glm::mat4 propeller4Matrix = glm::mat4(1);
     propeller4Matrix *= transform3D::Translate(drone.position.x, drone.position.y, drone.position.z);
-    propeller4Matrix *= transform3D::RotateOY(drone.AngleOY);
+    propeller4Matrix *= transform3D::RotateOY(drone.angleOY);
+    propeller4Matrix *= transform3D::RotateOY(0.785f);
     propeller4Matrix *= transform3D::Translate(0, 0.34f, 0.9f);
     propeller4Matrix *= transform3D::RotateOY(drone.propellersAngle);
 
@@ -105,49 +122,64 @@ void Tema2::Update(float deltaTimeSeconds)
 
 void Tema2::OnInputUpdate(float deltaTime, int mods)
 {
+    // compute drone's forward and right directions
+    glm::vec3 forward = glm::vec3(sin(drone.angleOY), 0, cos(drone.angleOY));
+    glm::vec3 right = glm::vec3(cos(drone.angleOY), 0, -sin(drone.angleOY));
+
     // go left
     if (window->KeyHold(GLFW_KEY_A) == true) {
-        drone.position.x -= 2*deltaTime;
+        drone.position -= right * 4.0f * deltaTime;
     }
 
     // go right
     if (window->KeyHold(GLFW_KEY_D) == true) {
-        drone.position.x += 2*deltaTime;
+        drone.position += right * 4.0f * deltaTime;
     }
 
     // go front
     if (window->KeyHold(GLFW_KEY_W) == true) {
-        drone.position.z -= 2*deltaTime;
+        drone.position -= forward * 4.0f * deltaTime;
     }
 
     // go back
     if (window->KeyHold(GLFW_KEY_S) == true) {
-        drone.position.z += 2*deltaTime;
+        drone.position += forward * 4.0f * deltaTime;
     }
 
     // go up
     if (window->KeyHold(GLFW_KEY_Q) == true) {
-        drone.position.y += 2*deltaTime;
+        drone.position.y -= 4 * deltaTime;
     }
 
     // go down
     if (window->KeyHold(GLFW_KEY_E) == true) {
-        drone.position.y -= 2*deltaTime;
+        drone.position.y += 4 * deltaTime;
     }
 
     // rotate right
     if (window->KeyHold(GLFW_KEY_R) == true) {
-        drone.AngleOY -= 2 * deltaTime;
+        drone.angleOY += 2 * deltaTime;
     }
 
     // rotate left
     if (window->KeyHold(GLFW_KEY_T) == true) {
-        drone.AngleOY += 2 * deltaTime;
+        drone.angleOY -= 2 * deltaTime;
     }
+
+    //SimpleScene::GetSceneCamera()->SetPosition(glm::vec3(0, CAMERA_TO_DRONE_DIST_OY, CAMERA_TO_DRONE_DIST_OX));
+    glm::quat cameraRotationOY = glm::angleAxis(drone.angleOY, glm::vec3(0, 1, 0));
+    glm::quat cameraRotationOX = glm::angleAxis(-0.2f, glm::vec3(1, 0, 0));
+    glm::quat cameraRotation = cameraRotationOY * cameraRotationOX;
+
+    glm::vec3 cameraOffset = cameraRotation * glm::vec3(0, CAMERA_TO_DRONE_DIST_OY, CAMERA_TO_DRONE_DIST_OX);
+    SimpleScene::GetSceneCamera()->SetPosition(drone.position + cameraOffset);
+    SimpleScene::GetSceneCamera()->SetRotation(cameraRotation);
 }
 
 void Tema2::OnKeyPress(int key, int mods)
 {
+    /*if (key == GLFW_KEY_SPACE) {
+    }*/
 }
 
 void Tema2::OnKeyRelease(int key, int mods)

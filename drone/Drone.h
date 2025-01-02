@@ -5,6 +5,6 @@
 class Drone {
 public:
 	glm::vec3 position;
-	float AngleOY;
+	float angleOY;
 	float propellersAngle;
 };

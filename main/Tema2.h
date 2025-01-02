@@ -3,6 +3,7 @@
 #include "components/simple_scene.h"
 #include "lab_m1/Tema2/meshes/transform3D.h"
 #include "lab_m1/Tema2/drone/Drone.h"
+#include "lab_m1/Tema2/camera/camera.h"
 
 namespace m1
 {
@@ -34,6 +35,8 @@ namespace m1
         void AddDronePropellerMesh();
 
     protected:
+        //implemented::DroneCamera* camera;
+        glm::mat4 projectionMatrix;
         Drone drone;
     };
 }   // namespace m1
