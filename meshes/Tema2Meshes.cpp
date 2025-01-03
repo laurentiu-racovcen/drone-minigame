@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 #include "lab_m1/Tema2/main/Tema2.h"
 #include "lab_m1/Tema2/meshes/transform3D.h"
 
@@ -7,11 +9,21 @@ using namespace std;
 using namespace m1;
 
 // Mesh colors
-#define COLOR_GRAY  0.85, 0.85, 0.85
-#define COLOR_BLACK    0,    0,    0
+#define COLOR_GRAY          0.85, 0.85, 0.85
+#define COLOR_BLACK         0, 0, 0
+
+#define DISK_TRIANGLES_NUM  50
+#define TREE_TRUNK_COLOR    0.294, 0.224, 0.16
+#define TREE_LEAVES_COLOR   0.455, 0.77, 0.463
+#define TREE_TRUNK_HEIGHT   5
 
 void Tema2::CreateMesh(const char* name, const std::vector<VertexFormat>& vertices, const std::vector<unsigned int>& indices)
 {
+    Mesh *newMesh = new Mesh(name);
+    newMesh->vertices = vertices;
+    newMesh->indices = indices;
+    meshes[name] = newMesh;
+
     unsigned int VAO = 0;
     // Create and bind the VAO
     glGenVertexArrays(1, &VAO);
@@ -58,9 +70,110 @@ void Tema2::CreateMesh(const char* name, const std::vector<VertexFormat>& vertic
         printf("\tOpenGL error.\n");
     }
 
-    // Mesh information is saved into a Mesh object
-    meshes[name] = new Mesh(name);
     meshes[name]->InitFromBuffer(VAO, static_cast<unsigned int>(indices.size()));
+}
+
+void Tema2::CreateTerrainMesh(const char* name, const std::vector<VertexFormat>& vertices,
+                               const std::vector<unsigned int>& indices)
+{
+    Mesh* newMesh = new Mesh(name);
+    newMesh->vertices = vertices;
+    newMesh->indices = indices;
+    meshes[name] = newMesh;
+
+    unsigned int VAO = 0;
+    // Create and bind the VAO
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+
+    unsigned int VBO = 0;
+    // Create and bind the VBO
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    // Send vertices data into the VBO buffer
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices[0]) * vertices.size(), &vertices[0], GL_STATIC_DRAW);
+
+    unsigned int IBO = 0;
+    // Create and bind the IBO
+    glGenBuffers(1, &IBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+
+    // Send indices data into the IBO buffer
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * indices.size(), &indices[0], GL_STATIC_DRAW);
+
+    // Set vertex position attribute
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexFormat), 0);
+
+    // Set vertex normal attribute
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexFormat), (void*)(sizeof(glm::vec3)));
+
+    // Set texture coordinate attribute
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexFormat), (void*)(2 * sizeof(glm::vec3)));
+
+    // Set vertex color attribute
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(VertexFormat), (void*)(2 * sizeof(glm::vec3) + sizeof(glm::vec2)));
+
+    // Create and bind a new VBO for vertex height attribute
+    unsigned int heightsVBO = 0;
+    glGenBuffers(1, &heightsVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, heightsVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(terrain.verticesHeights[0]) * terrain.verticesHeights.size(), &terrain.verticesHeights[0], GL_STATIC_DRAW);
+
+    // Set vertex height attribute
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(float), 0);
+
+    // Unbind the VAO
+    glBindVertexArray(0);
+
+    // Check for OpenGL errors
+    if (GetOpenGLError() == GL_INVALID_OPERATION)
+    {
+        printf("\tOpenGL error.\n");
+    }
+
+    meshes[name]->InitFromBuffer(VAO, static_cast<unsigned int>(indices.size()));
+}
+
+void Tema2::RenderTerrainMesh(Mesh* mesh, Shader* shader, const glm::mat4& modelMatrix)
+{
+    if (!mesh || !shader || !shader->GetProgramID())
+        return;
+
+    // Render an object using the specified shader and the specified position
+    glUseProgram(shader->program);
+
+    // Get shader location for uniform mat4 "Model"
+    int modelLocation = glGetUniformLocation(shader->program, "Model");
+
+    // Set shader uniform "Model" to modelMatrix
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+
+    // Get shader location for uniform mat4 "View"
+    int viewLocation = glGetUniformLocation(shader->program, "View");
+
+    // Set shader uniform "View" to viewMatrix
+    glm::mat4 viewMatrix = GetSceneCamera()->GetViewMatrix();
+    glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(viewMatrix));
+
+    // Get shader location for uniform mat4 "Projection"
+    int projectionLocation = glGetUniformLocation(shader->program, "Projection");
+
+    // Set shader uniform "Projection" to projectionMatrix
+    glm::mat4 projectionMatrix = GetSceneCamera()->GetProjectionMatrix();
+    glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
+
+    // Get the mesh color and send it to the shader
+    glUniform3fv(glGetUniformLocation(shader->program, "terrainColor"), 1, glm::value_ptr(terrain.color));
+
+    // Draw the object
+    glBindVertexArray(mesh->GetBuffers()->m_VAO);
+    glDrawElements(mesh->GetDrawMode(), static_cast<int>(mesh->indices.size()), GL_UNSIGNED_INT, 0);
 }
 
 void Tema2::AddDroneMesh()
@@ -298,4 +411,179 @@ void Tema2::AddDronePropellerMesh()
 
     // Create the mesh from the data
     CreateMesh("drone-propeller", vertices, indices);
+}
+
+void Tema2::AddTerrainMesh(Terrain *terrain)
+{
+    vector<VertexFormat> vertices;
+
+    for (unsigned int i = 0; i <= terrain->m; i++) {
+        for (unsigned int j = 0; j <= terrain->n; j++) {
+            vertices.push_back(VertexFormat(glm::vec3(j, 0, i), terrain->color));
+            // also add current vertex in the terrain instance vertices vector
+            terrain->vertices.push_back(VertexFormat(glm::vec3(j, 0, i), terrain->color));
+        }
+    }
+
+    vector<unsigned int> indices;
+
+    for (unsigned int i = 0; i < terrain->m; i++) {
+        for (unsigned int j = 0; j < terrain->n; j++) {
+            // 1st triangle of current rectangle (bottom left)
+            indices.push_back((terrain->n + 1) * i + j);
+            indices.push_back((terrain->n + 1) * (i + 1) + j);
+            indices.push_back((terrain->n + 1) * (i + 1) + j + 1);
+
+            // 2nd triangle of current rectangle (top right)
+            indices.push_back((terrain->n + 1) * i + j);
+            indices.push_back((terrain->n + 1) * (i + 1) + j + 1);
+            indices.push_back((terrain->n + 1) * i + j + 1);
+        }
+    }
+
+    // fill the random heights vector
+    terrain->generateTerrainHeights();
+
+    // Create the mesh from the data
+    CreateTerrainMesh("terrain", vertices, indices);
+}
+
+void Tema2::AddTreeMesh(float scale)
+{
+    /* ----------- compute tree trunk mesh ----------- */
+
+    unsigned int k = DISK_TRIANGLES_NUM;
+    vector<VertexFormat> vertices;
+    vector<unsigned int> indices;
+    // initialize the first vertex (x,y) = (1,0) in the vertices vector
+
+    // add origin of (x,y) = (0, 0)
+    vertices.push_back(VertexFormat(glm::vec3(0, 0, 0), glm::vec3(TREE_TRUNK_COLOR)));
+
+    // insert all the vertices of the top part of the trunk
+    for (unsigned int i = 1; i <= k; i++) {
+        vertices.push_back(VertexFormat(glm::vec3(cos(((float)i / k) * 2 * 3.14f)/2, 0, sin(((float)i / k) * 2 * 3.14f)/2),
+            glm::vec3(TREE_TRUNK_COLOR)));
+
+    }
+
+    // insert all the indices of the disk
+    for (unsigned int i = 2; i <= k; i++) {
+        indices.push_back(i);
+        indices.push_back(0);
+        indices.push_back(i - 1);
+    }
+
+    // add last triangle indices of the disk
+    indices.push_back(1);
+    indices.push_back(0);
+    indices.push_back(k);
+
+    unsigned int bottomDiskVerticesNum = vertices.size();
+
+    // insert all the vertices of the top part of the trunk
+    for (unsigned int i = 1; i < bottomDiskVerticesNum-1; i++) {
+        /* compute current rectangle vertices coordinates */
+
+        // bottom-left triangle
+
+        // top-left vertex
+        vertices.push_back(VertexFormat(
+            glm::vec3(vertices[i].position.x, vertices[i].position.y + TREE_TRUNK_HEIGHT, vertices[i].position.z),
+                glm::vec3(TREE_TRUNK_COLOR)
+            )
+        );
+
+        // bottom-left vertex
+        vertices.push_back(VertexFormat(
+                glm::vec3(vertices[i].position.x, vertices[i].position.y, vertices[i].position.z),
+                glm::vec3(TREE_TRUNK_COLOR)
+            )
+        );
+
+        // bottom-right vertex
+        vertices.push_back(VertexFormat(
+                glm::vec3(vertices[i+1].position.x, vertices[i+1].position.y, vertices[i+1].position.z),
+                glm::vec3(TREE_TRUNK_COLOR)
+            )
+        );
+
+        // top-right triangle
+
+        // top-left vertex
+        vertices.push_back(VertexFormat(
+                glm::vec3(vertices[i].position.x, vertices[i].position.y + TREE_TRUNK_HEIGHT, vertices[i].position.z),
+                glm::vec3(TREE_TRUNK_COLOR)
+            )
+        );
+
+        // bottom-right vertex
+        vertices.push_back(VertexFormat(
+                glm::vec3(vertices[i + 1].position.x, vertices[i + 1].position.y, vertices[i + 1].position.z),
+                glm::vec3(TREE_TRUNK_COLOR)
+            )
+        );
+
+        // top-right vertex
+        vertices.push_back(VertexFormat(
+                glm::vec3(vertices[i + 1].position.x, vertices[i + 1].position.y + TREE_TRUNK_HEIGHT, vertices[i + 1].position.z),
+                glm::vec3(TREE_TRUNK_COLOR)
+            )
+        );
+    }
+
+    cout << "\nNum=" << bottomDiskVerticesNum;
+
+    // insert all the indices of the trunk
+    for (unsigned int i = bottomDiskVerticesNum; i < vertices.size(); i++) {
+        indices.push_back(i);
+    }
+
+    // insert last trunk rectangle indices
+    indices.push_back(bottomDiskVerticesNum);
+    indices.push_back(bottomDiskVerticesNum + 1);
+    indices.push_back(vertices.size() - 2);
+
+    indices.push_back(bottomDiskVerticesNum);
+    indices.push_back(vertices.size() - 2);
+    indices.push_back(vertices.size() - 1);
+
+    /* ------------------- TREE LEAVES ---------------------- */
+
+    unsigned int oldVerticesNum = vertices.size();
+    // add origin of disk (x,y) = (0, 5, 0)
+    vertices.push_back(VertexFormat(glm::vec3(0, 5, 0), glm::vec3(TREE_LEAVES_COLOR)));
+
+    // add the top of cone (x,y) = (0, 8, 0)
+    vertices.push_back(VertexFormat(glm::vec3(0, 8, 0), glm::vec3(TREE_LEAVES_COLOR)));
+
+    // insert all the vertices of the top part of the trunk
+    for (unsigned int i = 1; i <= k; i++) {
+        vertices.push_back(VertexFormat(glm::vec3(cos(((float)i / k) * 2 * 3.14f)*3, 5, sin(((float)i / k) * 2 * 3.14f)*3),
+            glm::vec3(TREE_LEAVES_COLOR)));
+    }
+
+    // insert all the indices of the disk and cone
+    for (unsigned int i = oldVerticesNum + 2; i <= oldVerticesNum + k + 1; i++) {
+        indices.push_back(i);
+        indices.push_back(oldVerticesNum);
+        indices.push_back(i - 1);
+
+        indices.push_back(i);
+        indices.push_back(oldVerticesNum + 1);
+        indices.push_back(i - 1);
+    }
+
+    // add last triangle indices of the cone disk
+    indices.push_back(oldVerticesNum + 2);
+    indices.push_back(oldVerticesNum);
+    indices.push_back(oldVerticesNum + k + 1);
+
+    // add last triangle indices of the cone
+    indices.push_back(oldVerticesNum + 2);
+    indices.push_back(oldVerticesNum + 1);
+    indices.push_back(oldVerticesNum + k + 1);
+
+    // Create the mesh from the data
+    CreateMesh("tree", vertices, indices);
 }

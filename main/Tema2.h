@@ -3,7 +3,7 @@
 #include "components/simple_scene.h"
 #include "lab_m1/Tema2/meshes/transform3D.h"
 #include "lab_m1/Tema2/drone/Drone.h"
-#include "lab_m1/Tema2/camera/camera.h"
+#include "lab_m1/Tema2/terrain/Terrain.h"
 
 namespace m1
 {
@@ -17,6 +17,8 @@ namespace m1
 
     private:
         void CreateMesh(const char* name, const std::vector<VertexFormat>& vertices, const std::vector<unsigned int>& indices);
+        void CreateTerrainMesh(const char* name, const std::vector<VertexFormat>& vertices, const std::vector<unsigned int>& indices);
+        void RenderTerrainMesh(Mesh* mesh, Shader* shader, const glm::mat4& modelMatrix);
 
         void FrameStart() override;
         void FrameEnd() override;
@@ -33,10 +35,13 @@ namespace m1
 
         void AddDroneMesh();
         void AddDronePropellerMesh();
+        void AddTerrainMesh(Terrain *terrain);
+        void AddTreeMesh(float scale);
 
     protected:
         //implemented::DroneCamera* camera;
         glm::mat4 projectionMatrix;
         Drone drone;
+        Terrain terrain;
     };
 }   // namespace m1
