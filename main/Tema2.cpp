@@ -1,5 +1,5 @@
 #include "lab_m1/Tema2/main/Tema2.h"
-#include "lab_m1/lab3/object2D.h"
+#include "lab_m1/Tema2/random/Random.h"
 
 #include <iostream>
 
@@ -9,14 +9,22 @@ using namespace m1;
 #define SKY_COLOR                0.6705, 0.788,  0.8529
 #define TERRAIN_COLOR            0.455, 0.77, 0.463
 
+#define DRONE_SIZE               1
 #define DRONE_INITIAL_POSITION   0, 1, 0
+#define DRONE_PROPELLERS_SPEED   10
+
 #define CAMERA_TO_DRONE_DIST_OX  6.5
 #define CAMERA_TO_DRONE_DIST_OY  1.25
 
-#define TERRAIN_WIDTH            50
-#define TERRAIN_LENGTH           50
-#define MIN_TREE_SIZE            3
-#define MAX_TREE_SIZE            10
+#define TERRAIN_WIDTH            100
+#define TERRAIN_LENGTH           100
+#define MIN_TREE_SCALE           0.15f
+#define MAX_TREE_SCALE           1.0f
+#define TREES_NUMBER             50
+
+#define BUILDINGS_NUMBER         7
+#define MIN_BUILDING_SCALE       4
+#define MAX_BUILDING_SCALE       7
 
 Tema2::Tema2()
 {
@@ -44,8 +52,11 @@ void Tema2::Init()
     // add all objects meshes
 	AddDroneMesh();
     AddDronePropellerMesh();
-    AddTreeMesh(MAX_TREE_SIZE);
+    AddTreeMesh();
+    AddBuildingMesh();
     AddTerrainMesh(&terrain);
+    generateRandomBuildings(BUILDINGS_NUMBER, terrain.m, terrain.n);
+    generateRandomTrees(TREES_NUMBER, terrain.m, terrain.n);
 
     // add terrain shader
     Shader* shader = new Shader("TerrainShader");
@@ -72,6 +83,192 @@ void Tema2::FrameEnd()
     DrawCoordinateSystem();
 }
 
+bool Tema2::treeIntersectsWithOtherTree(Tree* currentTree, Tree obstacleTree) {
+    float currentTreeRadius = currentTree->scale * LEAVES_DISK_SCALE;
+    float obstacleTreeRadius = obstacleTree.scale * LEAVES_DISK_SCALE;
+
+    // compute the distance between the centers of the trees
+    float dx = currentTree->position.x - obstacleTree.position.x;
+    float dz = currentTree->position.z - obstacleTree.position.z;
+    float centersDist = sqrt(dx*dx + dz*dz);
+
+    if (centersDist > currentTreeRadius + obstacleTreeRadius) {
+        return false;
+    }
+
+    return true;
+}
+
+bool Tema2::treeIntersectsWithBuilding(Tree* currentTree, Building obstacleBuilding) {
+    /* check if the center of the tree is inside the building */
+    if (currentTree->position.x >= obstacleBuilding.position.x - obstacleBuilding.scale.x / 2 &&
+        currentTree->position.x <= obstacleBuilding.position.x + obstacleBuilding.scale.x / 2 &&
+        currentTree->position.z >= obstacleBuilding.position.z - obstacleBuilding.scale.z / 2 &&
+        currentTree->position.z <= obstacleBuilding.position.z + obstacleBuilding.scale.z / 2) {
+        return true;
+    }
+
+    float currentTreeRadius = currentTree->scale * LEAVES_DISK_SCALE;
+
+    float closestX = std::max(obstacleBuilding.position.x - obstacleBuilding.scale.x / 2,
+        std::min(currentTree->position.x, obstacleBuilding.position.x + obstacleBuilding.scale.x / 2));
+    float closestZ = std::max(obstacleBuilding.position.z - obstacleBuilding.scale.z / 2,
+        std::min(currentTree->position.z, obstacleBuilding.position.z + obstacleBuilding.scale.z / 2));
+
+    // compute the distance from the tree's center to the closest point on the rectangle
+    float dx = currentTree->position.x - closestX;
+    float dz = currentTree->position.z - closestZ;
+    float distanceToBuilding = sqrt(dx * dx + dz * dz);
+
+    if (distanceToBuilding > currentTreeRadius) {
+        return false;
+    }
+
+    return true;
+}
+
+// Function that searches for an obstacle-free position
+Tree *Tema2::getRandomTree(Tree* currentTree) {
+    unsigned int tries = 20;
+    while (tries != 0) {
+        currentTree->scale = MAX_TREE_SCALE * Random::noise(glm::vec2(0.5, rand()));
+        if (currentTree->scale < MIN_TREE_SCALE) {
+            currentTree->scale = MIN_TREE_SCALE;
+        }
+
+        currentTree->position.x = terrain.n * Random::noise(glm::vec2(0.5, rand()));
+        currentTree->position.z = terrain.m * Random::noise(glm::vec2(0.5, rand()));
+        currentTree->position.y = 0;
+
+        bool intersectsObstacle = false;
+
+        // check if current random-positioned tree intersects with other trees
+        for (size_t i = 0; i < trees.size(); i++) {
+            if (treeIntersectsWithOtherTree(currentTree, trees[i])) {
+                intersectsObstacle = true;
+                break;
+            }
+        }
+
+        // check if current random-positioned tree intersects with other trees
+        for (size_t i = 0; i < buildings.size(); i++) {
+            if (treeIntersectsWithBuilding(currentTree, buildings[i])) {
+                intersectsObstacle = true;
+                break;
+            }
+        }
+
+        if (!intersectsObstacle) {
+            // a free spot has been found
+            return currentTree;
+        }
+        tries--;
+    }
+    // a free spot has NOT been found for the current tree
+    return NULL;
+}
+
+
+
+void Tema2::generateRandomTrees(unsigned int treesNum, unsigned int terrainWidth, unsigned int terrainLength) {
+    for (unsigned int i = 0; i < treesNum; i++) {
+        Tree currentTree;
+        Tree* generatedTree = getRandomTree(&currentTree);
+        if (generatedTree != NULL) {
+            trees.push_back(*generatedTree);
+        }
+    }
+}
+
+bool Tema2::buildingIntersectsWithOtherBuilding(Building* currentBuilding, Building obstacleBuilding) {
+
+    // check right1 side with left2 side
+    float right1 = currentBuilding->position.x + 1.0f * currentBuilding->scale.x / 2;
+    float left2 = obstacleBuilding.position.x - 1.0f * obstacleBuilding.scale.x / 2;
+
+    if (right1 < left2) {
+        return false;
+    }
+
+    // check top1 side with bottom2 side
+    float top1 = currentBuilding->position.z + 1.0f * currentBuilding->scale.z / 2;
+    float bottom2 = obstacleBuilding.position.z - 1.0f * obstacleBuilding.scale.z / 2;
+
+    if (top1 < bottom2) {
+        return false;
+    }
+
+    // check left1 side with right2 side
+    float left1 = currentBuilding->position.x - 1.0f * currentBuilding->scale.x / 2;
+    float right2 = obstacleBuilding.position.x + 1.0f * obstacleBuilding.scale.x / 2;
+
+    if (left1 > right2) {
+        return false;
+    }
+
+    // check bottom1 side with top2 side
+    float bottom1 = currentBuilding->position.z - 1.0f * currentBuilding->scale.z / 2;
+    float top2 = obstacleBuilding.position.z + 1.0f * obstacleBuilding.scale.z / 2;
+
+    if (bottom1 > top2) {
+        return false;
+    }
+
+    return true;
+}
+
+Building *Tema2::getRandomBuilding(Building* currentBuilding) {
+    unsigned int tries = 20;
+    while (tries != 0) {
+        float randomScaleX = MAX_BUILDING_SCALE * Random::noise(glm::vec2(0.5, rand()));
+        if (randomScaleX < MIN_BUILDING_SCALE) {
+            randomScaleX = MIN_BUILDING_SCALE;
+        }
+        float randomScaleY = MAX_BUILDING_SCALE * Random::noise(glm::vec2(0.5, rand()));
+        if (randomScaleY < MIN_BUILDING_SCALE) {
+            randomScaleY = MIN_BUILDING_SCALE;
+        }
+        float randomScaleZ = MAX_BUILDING_SCALE * Random::noise(glm::vec2(0.5, rand()));
+        if (randomScaleZ < MIN_BUILDING_SCALE) {
+            randomScaleZ = MIN_BUILDING_SCALE;
+        }
+
+        currentBuilding->scale = glm::vec3(randomScaleX, randomScaleY, randomScaleZ);
+
+        currentBuilding->position.x = terrain.n * Random::noise(glm::vec2(0.5, rand()));
+        currentBuilding->position.z = terrain.m * Random::noise(glm::vec2(0.5, rand()));
+        currentBuilding->position.y = 0;
+
+        bool intersectsObstacle = false;
+
+        // check if current random-positioned tree intersects with other trees
+        for (size_t i = 0; i < buildings.size(); i++) {
+            if (buildingIntersectsWithOtherBuilding(currentBuilding, buildings[i])) {
+                intersectsObstacle = true;
+                break;
+            }
+        }
+        if (!intersectsObstacle) {
+            // a free spot has been found
+            return currentBuilding;
+        }
+
+        tries--;
+    }
+
+    return NULL;
+}
+
+void Tema2::generateRandomBuildings(unsigned int buildingsNum, unsigned int terrainWidth, unsigned int terrainLength) {
+    for (unsigned int i = 0; i < buildingsNum; i++) {
+        Building currentBuilding;
+        Building* generatedBuilding = getRandomBuilding(&currentBuilding);
+        if (generatedBuilding != NULL) {
+            buildings.push_back(*generatedBuilding);
+        }
+    }
+}
+
 void Tema2::Update(float deltaTimeSeconds)
 {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -81,7 +278,8 @@ void Tema2::Update(float deltaTimeSeconds)
     glm::mat4 droneMatrix = glm::mat4(1);
     droneMatrix *= transform3D::Translate(drone.position.x, drone.position.y, drone.position.z);
     droneMatrix *= transform3D::RotateOY(drone.angleOY);
-    droneMatrix *= transform3D::RotateOY(0.785f);
+    droneMatrix *= transform3D::RotateOY(M_PI_4);
+    droneMatrix *= transform3D::Scale(DRONE_SIZE, DRONE_SIZE, DRONE_SIZE);
 
     // render the drone
     RenderMesh(meshes["drone"], shaders["VertexColor"], droneMatrix);
@@ -90,9 +288,10 @@ void Tema2::Update(float deltaTimeSeconds)
     glm::mat4 propeller1Matrix = glm::mat4(1);
     propeller1Matrix *= transform3D::Translate(drone.position.x, drone.position.y, drone.position.z);
     propeller1Matrix *= transform3D::RotateOY(drone.angleOY);
-    propeller1Matrix *= transform3D::RotateOY(0.785f);
-    propeller1Matrix *= transform3D::Translate(-0.9f, 0.34f, 0);
+    propeller1Matrix *= transform3D::RotateOY(M_PI_4);
+    propeller1Matrix *= transform3D::Translate(-DRONE_SIZE * 0.9f, DRONE_SIZE * 0.34f, 0);
     propeller1Matrix *= transform3D::RotateOY(drone.propellersAngle);
+    propeller1Matrix *= transform3D::Scale(DRONE_SIZE, DRONE_SIZE, DRONE_SIZE);
 
     RenderMesh(meshes["drone-propeller"], shaders["VertexColor"], propeller1Matrix);
 
@@ -100,9 +299,10 @@ void Tema2::Update(float deltaTimeSeconds)
     glm::mat4 propeller2Matrix = glm::mat4(1);
     propeller2Matrix *= transform3D::Translate(drone.position.x, drone.position.y, drone.position.z);
     propeller2Matrix *= transform3D::RotateOY(drone.angleOY);
-    propeller2Matrix *= transform3D::RotateOY(0.785f);
-    propeller2Matrix *= transform3D::Translate(0.9f, 0.34f, 0);
+    propeller2Matrix *= transform3D::RotateOY(M_PI_4);
+    propeller2Matrix *= transform3D::Translate(DRONE_SIZE * 0.9f, DRONE_SIZE * 0.34f, 0);
     propeller2Matrix *= transform3D::RotateOY(drone.propellersAngle);
+    propeller2Matrix *= transform3D::Scale(DRONE_SIZE, DRONE_SIZE, DRONE_SIZE);
 
     RenderMesh(meshes["drone-propeller"], shaders["VertexColor"], propeller2Matrix);
 
@@ -110,9 +310,10 @@ void Tema2::Update(float deltaTimeSeconds)
     glm::mat4 propeller3Matrix = glm::mat4(1);
     propeller3Matrix *= transform3D::Translate(drone.position.x, drone.position.y, drone.position.z);
     propeller3Matrix *= transform3D::RotateOY(drone.angleOY);
-    propeller3Matrix *= transform3D::RotateOY(0.785f);
-    propeller3Matrix *= transform3D::Translate(0, 0.34f, -0.9f);
+    propeller3Matrix *= transform3D::RotateOY(M_PI_4);
+    propeller3Matrix *= transform3D::Translate(0, DRONE_SIZE * 0.34f, -DRONE_SIZE * 0.9f);
     propeller3Matrix *= transform3D::RotateOY(drone.propellersAngle);
+    propeller3Matrix *= transform3D::Scale(DRONE_SIZE, DRONE_SIZE, DRONE_SIZE);
 
     RenderMesh(meshes["drone-propeller"], shaders["VertexColor"], propeller3Matrix);
 
@@ -120,17 +321,18 @@ void Tema2::Update(float deltaTimeSeconds)
     glm::mat4 propeller4Matrix = glm::mat4(1);
     propeller4Matrix *= transform3D::Translate(drone.position.x, drone.position.y, drone.position.z);
     propeller4Matrix *= transform3D::RotateOY(drone.angleOY);
-    propeller4Matrix *= transform3D::RotateOY(0.785f);
-    propeller4Matrix *= transform3D::Translate(0, 0.34f, 0.9f);
+    propeller4Matrix *= transform3D::RotateOY(M_PI_4);
+    propeller4Matrix *= transform3D::Translate(0, DRONE_SIZE * 0.34f, DRONE_SIZE * 0.9f);
     propeller4Matrix *= transform3D::RotateOY(drone.propellersAngle);
+    propeller4Matrix *= transform3D::Scale(DRONE_SIZE, DRONE_SIZE, DRONE_SIZE);
 
     RenderMesh(meshes["drone-propeller"], shaders["VertexColor"], propeller4Matrix);
 
     // update propellers angle
-    if (drone.propellersAngle >= 2 * 3.14) {
+    if (drone.propellersAngle >= 2 * M_PI) {
         drone.propellersAngle = 0;
     } else {
-        drone.propellersAngle += 10 * deltaTimeSeconds;
+        drone.propellersAngle += DRONE_PROPELLERS_SPEED * deltaTimeSeconds;
     }
 
     /* --------------- Render the terrain --------------- */
@@ -142,12 +344,27 @@ void Tema2::Update(float deltaTimeSeconds)
 
     /* --------------- Render the trees --------------- */
 
-    glm::mat4 treeMatrix = glm::mat4(1);
-    //treeMatrix *= transform3D::Scale(0.5, 1, 0.5);
-    treeMatrix *= transform3D::Translate(0, 0, 0);
+    for (size_t i = 0; i < trees.size(); i++) {
+        // render current tree
+        glm::mat4 treeMatrix = glm::mat4(1);
+        treeMatrix *= transform3D::Translate(trees[i].position.x, trees[i].position.y, trees[i].position.z);
+        treeMatrix *= transform3D::Translate(-(float)terrain.n / 2, 0, -(float)terrain.m / 2);
+        treeMatrix *= transform3D::Scale(trees[i].scale, trees[i].scale, trees[i].scale);
 
-    // render the drone
-    RenderMesh(meshes["tree"], shaders["VertexColor"], treeMatrix);
+        RenderMesh(meshes["tree"], shaders["VertexColor"], treeMatrix);
+    }
+
+    /* --------------- Render the buildings --------------- */
+
+    for (size_t i = 0; i < buildings.size(); i++) {
+        // render current building
+        glm::mat4 buildingMatrix = glm::mat4(1);
+        buildingMatrix *= transform3D::Translate(buildings[i].position.x, buildings[i].position.y, buildings[i].position.z);
+        buildingMatrix *= transform3D::Translate(-(float)terrain.n / 2, 0, -(float)terrain.m / 2);
+        buildingMatrix *= transform3D::Scale(buildings[i].scale.x, buildings[i].scale.y, buildings[i].scale.z);
+
+        RenderMesh(meshes["building"], shaders["VertexColor"], buildingMatrix);
+    }
 }
 
 void Tema2::OnInputUpdate(float deltaTime, int mods)

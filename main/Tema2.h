@@ -4,6 +4,10 @@
 #include "lab_m1/Tema2/meshes/transform3D.h"
 #include "lab_m1/Tema2/drone/Drone.h"
 #include "lab_m1/Tema2/terrain/Terrain.h"
+#include "lab_m1/Tema2/obstacles/Tree.h"
+#include "lab_m1/Tema2/obstacles/Building.h"
+
+#define LEAVES_DISK_SCALE    3
 
 namespace m1
 {
@@ -36,12 +40,24 @@ namespace m1
         void AddDroneMesh();
         void AddDronePropellerMesh();
         void AddTerrainMesh(Terrain *terrain);
-        void AddTreeMesh(float scale);
+        void AddTreeMesh();
+        void AddBuildingMesh();
+
+        bool treeIntersectsWithOtherTree(Tree *currentTree, Tree obstacleTree);
+        bool treeIntersectsWithBuilding(Tree* currentTree, Building obstacleBuilding);
+
+        bool buildingIntersectsWithOtherBuilding(Building* currentBuilding, Building obstacleBuilding);
+        Tree* getRandomTree(Tree* currentTree);
+        Building* getRandomBuilding(Building* currentBuilding);
+        void generateRandomTrees(unsigned int treesNum, unsigned int terrainWidth, unsigned int terrainLength);
+        void generateRandomBuildings(unsigned int buildingsNum, unsigned int terrainWidth, unsigned int terrainLength);
 
     protected:
         //implemented::DroneCamera* camera;
         glm::mat4 projectionMatrix;
         Drone drone;
         Terrain terrain;
+        vector<Tree> trees;
+        vector<Building> buildings;
     };
 }   // namespace m1

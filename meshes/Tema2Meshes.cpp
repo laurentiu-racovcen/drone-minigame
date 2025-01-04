@@ -16,6 +16,8 @@ using namespace m1;
 #define TREE_TRUNK_COLOR    0.294, 0.224, 0.16
 #define TREE_LEAVES_COLOR   0.455, 0.77, 0.463
 #define TREE_TRUNK_HEIGHT   5
+#define TREE_LEAVES_HEIGHT  3
+#define LEAVES_DISTANCE     1
 
 void Tema2::CreateMesh(const char* name, const std::vector<VertexFormat>& vertices, const std::vector<unsigned int>& indices)
 {
@@ -448,7 +450,7 @@ void Tema2::AddTerrainMesh(Terrain *terrain)
     CreateTerrainMesh("terrain", vertices, indices);
 }
 
-void Tema2::AddTreeMesh(float scale)
+void Tema2::AddTreeMesh()
 {
     /* ----------- compute tree trunk mesh ----------- */
 
@@ -532,8 +534,6 @@ void Tema2::AddTreeMesh(float scale)
         );
     }
 
-    cout << "\nNum=" << bottomDiskVerticesNum;
-
     // insert all the indices of the trunk
     for (unsigned int i = bottomDiskVerticesNum; i < vertices.size(); i++) {
         indices.push_back(i);
@@ -550,16 +550,90 @@ void Tema2::AddTreeMesh(float scale)
 
     /* ------------------- TREE LEAVES ---------------------- */
 
+    /* FIRST CONE */
+
     unsigned int oldVerticesNum = vertices.size();
     // add origin of disk (x,y) = (0, 5, 0)
-    vertices.push_back(VertexFormat(glm::vec3(0, 5, 0), glm::vec3(TREE_LEAVES_COLOR)));
+    vertices.push_back(VertexFormat(glm::vec3(0, TREE_TRUNK_HEIGHT, 0), glm::vec3(TREE_LEAVES_COLOR)));
 
     // add the top of cone (x,y) = (0, 8, 0)
-    vertices.push_back(VertexFormat(glm::vec3(0, 8, 0), glm::vec3(TREE_LEAVES_COLOR)));
+    vertices.push_back(VertexFormat(glm::vec3(0, TREE_TRUNK_HEIGHT + TREE_LEAVES_HEIGHT, 0), glm::vec3(TREE_LEAVES_COLOR)));
 
     // insert all the vertices of the top part of the trunk
     for (unsigned int i = 1; i <= k; i++) {
-        vertices.push_back(VertexFormat(glm::vec3(cos(((float)i / k) * 2 * 3.14f)*3, 5, sin(((float)i / k) * 2 * 3.14f)*3),
+        vertices.push_back(VertexFormat(glm::vec3(cos(((float)i / k) * 2 * 3.14f) * LEAVES_DISK_SCALE, TREE_TRUNK_HEIGHT, sin(((float)i / k) * 2 * 3.14f) * LEAVES_DISK_SCALE),
+            glm::vec3(TREE_LEAVES_COLOR)));
+    }
+
+    // insert all the indices of the disk and cone
+    for (unsigned int i = oldVerticesNum + 2; i <= oldVerticesNum + k + 1; i++) {
+        indices.push_back(i);
+        indices.push_back(oldVerticesNum);
+        indices.push_back(i - 1);
+
+        indices.push_back(i);
+        indices.push_back(oldVerticesNum + 1);
+        indices.push_back(i - 1);
+    }
+
+    // add last triangle indices of the cone disk
+    indices.push_back(oldVerticesNum + 2);
+    indices.push_back(oldVerticesNum);
+    indices.push_back(oldVerticesNum + k + 1);
+
+    // add last triangle indices of the cone
+    indices.push_back(oldVerticesNum + 2);
+    indices.push_back(oldVerticesNum + 1);
+    indices.push_back(oldVerticesNum + k + 1);
+
+    /* SECOND CONE */
+
+    oldVerticesNum = vertices.size();
+    // add origin of disk (x,y)
+    vertices.push_back(VertexFormat(glm::vec3(0, TREE_TRUNK_HEIGHT + LEAVES_DISTANCE, 0), glm::vec3(TREE_LEAVES_COLOR)));
+
+    // add the top of cone (x,y)
+    vertices.push_back(VertexFormat(glm::vec3(0, TREE_TRUNK_HEIGHT + LEAVES_DISTANCE + TREE_LEAVES_HEIGHT, 0), glm::vec3(TREE_LEAVES_COLOR)));
+
+    // insert all the vertices of the current leaves disk
+    for (unsigned int i = 1; i <= k; i++) {
+        vertices.push_back(VertexFormat(glm::vec3(cos(((float)i / k) * 2 * 3.14f) * LEAVES_DISK_SCALE, TREE_TRUNK_HEIGHT + LEAVES_DISTANCE, sin(((float)i / k) * 2 * 3.14f) * LEAVES_DISK_SCALE),
+            glm::vec3(TREE_LEAVES_COLOR)));
+    }
+
+    // insert all the indices of the disk and cone
+    for (unsigned int i = oldVerticesNum + 2; i <= oldVerticesNum + k + 1; i++) {
+        indices.push_back(i);
+        indices.push_back(oldVerticesNum);
+        indices.push_back(i - 1);
+
+        indices.push_back(i);
+        indices.push_back(oldVerticesNum + 1);
+        indices.push_back(i - 1);
+    }
+
+    // add last triangle indices of the cone disk
+    indices.push_back(oldVerticesNum + 2);
+    indices.push_back(oldVerticesNum);
+    indices.push_back(oldVerticesNum + k + 1);
+
+    // add last triangle indices of the cone
+    indices.push_back(oldVerticesNum + 2);
+    indices.push_back(oldVerticesNum + 1);
+    indices.push_back(oldVerticesNum + k + 1);
+
+    /* THIRD CONE */
+
+    oldVerticesNum = vertices.size();
+    // add origin of disk (x,y)
+    vertices.push_back(VertexFormat(glm::vec3(0, TREE_TRUNK_HEIGHT + 2*LEAVES_DISTANCE, 0), glm::vec3(TREE_LEAVES_COLOR)));
+
+    // add the top of cone (x,y)
+    vertices.push_back(VertexFormat(glm::vec3(0, TREE_TRUNK_HEIGHT + 2*LEAVES_DISTANCE + TREE_LEAVES_HEIGHT, 0), glm::vec3(TREE_LEAVES_COLOR)));
+
+    // insert all the vertices of the current leaves disk
+    for (unsigned int i = 1; i <= k; i++) {
+        vertices.push_back(VertexFormat(glm::vec3(cos(((float)i / k) * 2 * 3.14f) * LEAVES_DISK_SCALE, TREE_TRUNK_HEIGHT + 2*LEAVES_DISTANCE, sin(((float)i / k) * 2 * 3.14f) * LEAVES_DISK_SCALE),
             glm::vec3(TREE_LEAVES_COLOR)));
     }
 
@@ -587,3 +661,46 @@ void Tema2::AddTreeMesh(float scale)
     // Create the mesh from the data
     CreateMesh("tree", vertices, indices);
 }
+
+void Tema2::AddBuildingMesh()
+{
+    vector<VertexFormat> vertices
+    {
+        // Front
+        VertexFormat(glm::vec3(-0.5, 0, 0.5), glm::vec3(0, 1, 1)),   // Bottom-left     0
+        VertexFormat(glm::vec3(0.5, 0,  0.5), glm::vec3(0, 0, 1)),   // Bottom-right   1
+        VertexFormat(glm::vec3(0.5,  1,  0.5), glm::vec3(0, 1, 1)),   // Top-right      2
+        VertexFormat(glm::vec3(-0.5,  1,  0.5), glm::vec3(0, 0, 1)),  // Top-left      3
+
+        // Back
+        VertexFormat(glm::vec3(-0.5, 0, -0.5), glm::vec3(0, 0, 1)),  // Bottom-left  4
+        VertexFormat(glm::vec3(0.5, 0, -0.5), glm::vec3(0, 1, 1)),   // Bottom-right  5
+        VertexFormat(glm::vec3(0.5,  1, -0.5), glm::vec3(0, 1, 1)),   // Top-right     6
+        VertexFormat(glm::vec3(-0.5,  1, -0.5), glm::vec3(0, 0, 1)),  // Top-left     7
+    };
+
+    vector<unsigned int> indices =
+    {
+        0, 1, 2,  // Front face (clockwise)
+        2, 3, 0,
+
+        6, 5, 4,  // Back face (counterclockwise)
+        4, 7, 6,
+
+        0, 3, 4,  // Left face (clockwise)
+        4, 3, 7,
+
+        1, 6, 2,  // Right face (counterclockwise)
+        5, 6, 1,
+
+        5, 1, 0,  // Bottom face (clockwise)
+        5, 0, 4,
+
+        7, 3, 2,  // Top face (counterclockwise)
+        6, 7, 2
+    };
+
+    // Create the mesh from the data
+    CreateMesh("building", vertices, indices);
+}
+
