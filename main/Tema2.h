@@ -6,8 +6,13 @@
 #include "lab_m1/Tema2/terrain/Terrain.h"
 #include "lab_m1/Tema2/obstacles/Tree.h"
 #include "lab_m1/Tema2/obstacles/Building.h"
+#include "lab_m1/Tema2/package/Package.h"
+#include "lab_m1/Tema2/textbox/TextBox.h"
 
-#define LEAVES_DISK_SCALE    3
+#define LEAVES_DISK_SCALE      3
+#define TREE_TRUNK_HEIGHT      5
+#define TREE_LEAVES_HEIGHT     3
+#define LEAVES_DISTANCE        1
 
 namespace m1
 {
@@ -23,6 +28,13 @@ namespace m1
         void CreateMesh(const char* name, const std::vector<VertexFormat>& vertices, const std::vector<unsigned int>& indices);
         void CreateTerrainMesh(const char* name, const std::vector<VertexFormat>& vertices, const std::vector<unsigned int>& indices);
         void RenderTerrainMesh(Mesh* mesh, Shader* shader, const glm::mat4& modelMatrix);
+        void RenderDrone(float deltaTimeSeconds);
+        void RenderTerrain();
+        void RenderTrees();
+        void RenderBuildings();
+        void RenderPackage();
+        void RenderPackageLocationDisk(glm::vec3 location);
+        void RenderText(std::string text, float posX, float posY, float scale, glm::vec3 color, bool isAligned);
 
         void FrameStart() override;
         void FrameEnd() override;
@@ -42,15 +54,29 @@ namespace m1
         void AddTerrainMesh(Terrain *terrain);
         void AddTreeMesh();
         void AddBuildingMesh();
+        void AddPackageMesh();
+        void AddPackageLocationMesh();
 
         bool treeIntersectsWithOtherTree(Tree *currentTree, Tree obstacleTree);
         bool treeIntersectsWithBuilding(Tree* currentTree, Building obstacleBuilding);
+        bool DroneCollidesWithTerrain(glm::vec3 dronePosition);
+        bool DroneCollidesWithMapLimits(glm::vec3 dronePosition);
+        bool DroneCollidesWithATree(glm::vec3 dronePosition);
+        bool DroneCollidesWithABuilding(glm::vec3 dronePosition);
+        bool DroneCollidesWithObstacles(glm::vec3 dronePosition);
+        bool DroneCollidesWithPackage();
+        bool DroneCollidesWithDestPackage();
+        bool disksIntersect(glm::vec3 dronePosition, glm::vec3 treePosition, float trunkRadius, float droneRadius);
 
         bool buildingIntersectsWithOtherBuilding(Building* currentBuilding, Building obstacleBuilding);
-        Tree* getRandomTree(Tree* currentTree);
-        Building* getRandomBuilding(Building* currentBuilding);
+        Tree* generateRandomTree(Tree* currentTree);
+        Building* generateRandomBuilding(Building* currentBuilding);
         void generateRandomTrees(unsigned int treesNum, unsigned int terrainWidth, unsigned int terrainLength);
         void generateRandomBuildings(unsigned int buildingsNum, unsigned int terrainWidth, unsigned int terrainLength);
+        void generatePackageLocations();
+        bool generateRandomPackage();
+        bool packageIntersectsWithTree(glm::vec3 packagePosition, Tree obstacleTree);
+        bool packageIntersectsWithBuilding(glm::vec3 packagePosition, Building obstacleBuilding);
 
     protected:
         //implemented::DroneCamera* camera;
@@ -59,5 +85,7 @@ namespace m1
         Terrain terrain;
         vector<Tree> trees;
         vector<Building> buildings;
+        Package package;
+        unsigned int score;
     };
 }   // namespace m1

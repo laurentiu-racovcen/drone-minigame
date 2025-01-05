@@ -17,8 +17,8 @@ Terrain::~Terrain()
 void Terrain::generateTerrainHeights() {
 	for (unsigned int i = 0; i < (m+1) * (n+1); i++) {
 		float currentNoiseValue = Random::noise(glm::vec2(this->vertices[i].position.x, this->vertices[i].position.z));
-		this->verticesHeights.push_back(0.5f*currentNoiseValue);
+		this->verticesHeights.push_back(MAX_TERRAIN_HEIGHT * currentNoiseValue);
 		// also add vertex in map
-		this->verticesHeightsMap.insert({ make_tuple(this->vertices[i].position.x, this->vertices[i].position.y, this->vertices[i].position.z), 0.5f * currentNoiseValue });
+		this->verticesHeightsMap.insert({ make_tuple((int)this->vertices[i].position.x, (int)this->vertices[i].position.y, (int)this->vertices[i].position.z), MAX_TERRAIN_HEIGHT * currentNoiseValue });
 	}
 }

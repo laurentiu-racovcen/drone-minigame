@@ -4,6 +4,8 @@
 #include <map>
 #include "components/simple_scene.h"
 
+#define MAX_TERRAIN_HEIGHT  0.5f
+
 using namespace std;
 
 class Terrain {
@@ -25,5 +27,5 @@ public:
 	unsigned int n;
 	vector <VertexFormat> vertices;
 	vector <float> verticesHeights;
-	map <tuple<float, float, float>, float> verticesHeightsMap;
+	map <tuple<int, int, int>, float> verticesHeightsMap;
 };
