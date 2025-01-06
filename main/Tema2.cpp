@@ -11,26 +11,27 @@ using namespace m1;
 
 #define DRONE_SIZE                1
 #define DRONE_INITIAL_POSITION    0, 10, 0
-#define DRONE_SPEED               8.0f
+#define DRONE_SPEED               12.0f
 #define DRONE_PROPELLERS_SPEED    10
 #define OBSTACLE_THROW_DISTANCE   30.0f
 
 #define CAMERA_TO_DRONE_DIST_OX   6.5
 #define CAMERA_TO_DRONE_DIST_OY   1.25
 
-#define TERRAIN_WIDTH             100
-#define TERRAIN_LENGTH            100
+#define TERRAIN_WIDTH             200
+#define TERRAIN_LENGTH            200
 #define MIN_TREE_SCALE            0.55f
 #define MAX_TREE_SCALE            2.0f
-#define TREES_NUMBER              15
+#define TREES_NUMBER              12
 
-#define BUILDINGS_NUMBER          7
+#define BUILDINGS_NUMBER          100
 #define MIN_BUILDING_SCALE        5.5f
-#define MAX_BUILDING_SCALE        10
+#define MAX_BUILDING_SCALE        20
 
 #define MIN_PACKAGE_SCALE         1.0f
 #define MAX_PACKAGE_SCALE         3.0f
 #define PACKAGE_SPOT_RADIUS_SIZE  3.0f
+#define PACKAGE_ARROW_SIZE        1.2f
 
 Tema2::Tema2()
 {
@@ -61,7 +62,9 @@ void Tema2::Init()
     AddTreeMesh();
     AddBuildingMesh();
     AddPackageMesh();
-    AddPackageLocationMesh();
+    AddPackageSrcLocationMesh();
+    AddPackageDstLocationMesh();
+    AddPackageLocationArrowMesh();
     AddTerrainMesh(&terrain);
     generateRandomBuildings(BUILDINGS_NUMBER, terrain.m, terrain.n);
     generateRandomTrees(TREES_NUMBER, terrain.m, terrain.n);
@@ -73,11 +76,34 @@ void Tema2::Init()
     shader->CreateAndLink();
     shaders[shader->GetName()] = shader;
 
+    // add text object
+    // Create the text renderer object
+    glm::ivec2 resolution = window->GetResolution();
+    roundTextRenderer = new gfxc::TextRenderer(window->props.selfDir, resolution.x, resolution.y);
+    roundTextRenderer->Load(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::FONTS, "Hack-Bold.ttf"), 20);
+
+    playAgainTextRenderer = new gfxc::TextRenderer(window->props.selfDir, resolution.x, resolution.y);
+    playAgainTextRenderer->Load(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::FONTS, "Hack-Bold.ttf"), 40);
+
+    gameInterrupted = false;
+    couldGeneratePackageLocation = true;
+
     // initialize the package
     generatePackageLocations();
 
-    // initialize the score
+    // initialize the score and package location radius
     score = 0;
+    packageLocationRadius = PACKAGE_SPOT_RADIUS_SIZE;
+    packageLocationRadiusStep = 0;
+
+    // record start time
+    startTime = std::chrono::high_resolution_clock::now();
+
+    // record stop time
+    stopTime = std::chrono::high_resolution_clock::now() + chrono::seconds(60);
+
+    timeExpired = false;
+    playAgainClicked = false;
 }
 
 void Tema2::FrameStart()
@@ -94,7 +120,6 @@ void Tema2::FrameStart()
 
 void Tema2::FrameEnd()
 {
-    DrawCoordinateSystem();
 }
 
 bool Tema2::treeIntersectsWithOtherTree(Tree* currentTree, Tree obstacleTree) {
@@ -229,8 +254,6 @@ bool Tema2::packageIntersectsWithBuilding(glm::vec3 packagePosition, Building ob
     float distanceToBuilding = sqrt(dx * dx + dz * dz);
 
     if (distanceToBuilding > PACKAGE_SPOT_RADIUS_SIZE) {
-        //cout << "building center = " << obstacleBuilding.position.x - (float)terrain.n / 2 << ", " << obstacleBuilding.position.z - (float)terrain.m / 2 << "\n";
-        //cout << "dist to building = " << distanceToBuilding << "\n";
         return false;
     }
 
@@ -293,10 +316,6 @@ bool Tema2::generateRandomPackage() {
         if (!intersectsObstacle) {
             // a free spot has been found, set isInTransit to false
             package.isInTransit = false;
-       /*     cout << "\nsource package coords: "
-            << package.sourceLocation.x - (float)terrain.n / 2 << ", "
-            << package.sourceLocation.y << ", "
-            << package.sourceLocation.z - (float)terrain.m / 2;*/
             return true;
         }
 
@@ -309,7 +328,8 @@ bool Tema2::generateRandomPackage() {
 void Tema2::generatePackageLocations() {
     bool ret = generateRandomPackage();
     if (ret == false) {
-        cout << "COULD NOT generate new package!\n";
+        couldGeneratePackageLocation = false;
+        gameInterrupted = true;
     }
 }
 
@@ -400,6 +420,10 @@ void Tema2::generateRandomBuildings(unsigned int buildingsNum, unsigned int terr
             buildings.push_back(*generatedBuilding);
         }
     }
+}
+
+float Tema2::getAngleBetweenPoints(glm::vec2 p1, glm::vec2 p2) {
+    return atan2f((p2.y - p1.y), (p2.x - p1.x));
 }
 
 void Tema2::RenderDrone(float deltaTimeSeconds) {
@@ -496,6 +520,7 @@ void Tema2::RenderBuildings() {
 }
 
 void Tema2::RenderPackage() {
+    packageLocationRadius = PACKAGE_SPOT_RADIUS_SIZE - 0.5f * abs(sin(2*packageLocationRadiusStep));
     if (!package.isInTransit) {
         // render package at source location
         glm::mat4 packageMatrix = glm::mat4(1);
@@ -506,12 +531,12 @@ void Tema2::RenderPackage() {
         RenderMesh(meshes["package"], shaders["VertexColor"], packageMatrix);
 
         // also render the source location disk
-        RenderPackageLocationDisk(package.sourceLocation);
+        RenderPackageSrcLocationDisk();
     } else {
         // render the package following the drone
         glm::mat4 packageMatrix = glm::mat4(1);
         // translate the package under the drone
-        packageMatrix *= transform3D::Translate(0, -package.scale - 0.1f, 0);
+        packageMatrix *= transform3D::Translate(0, -package.scale - 0.2f, 0);
 
         packageMatrix *= transform3D::Translate(drone.position.x, drone.position.y, drone.position.z);
         packageMatrix *= transform3D::RotateOY(drone.angleOY);
@@ -521,29 +546,149 @@ void Tema2::RenderPackage() {
         RenderMesh(meshes["package"], shaders["VertexColor"], packageMatrix);
 
         // also render the destination location disk
-        RenderPackageLocationDisk(package.destinationLocation);
+        RenderPackageDstLocationDisk();
+    }
+
+    RenderPackageLocationArrow();
+}
+
+void Tema2::RenderPackageSrcLocationDisk() {
+    // render package at source location
+    glm::mat4 packageMatrix = glm::mat4(1);
+    packageMatrix *= transform3D::Translate(package.sourceLocation.x, package.sourceLocation.y, package.sourceLocation.z);
+    packageMatrix *= transform3D::Translate(-(float)terrain.n / 2, 0, -(float)terrain.m / 2);
+    packageMatrix *= transform3D::Scale(packageLocationRadius, packageLocationRadius, packageLocationRadius);
+
+    RenderMesh(meshes["package-source-location-disk"], shaders["VertexColor"], packageMatrix);
+}
+
+void Tema2::RenderPackageDstLocationDisk() {
+    // render package at source location
+    glm::mat4 packageMatrix = glm::mat4(1);
+    packageMatrix *= transform3D::Translate(package.destinationLocation.x, package.destinationLocation.y, package.destinationLocation.z);
+    packageMatrix *= transform3D::Translate(-(float)terrain.n / 2, 0, -(float)terrain.m / 2);
+    packageMatrix *= transform3D::Scale(packageLocationRadius, packageLocationRadius, packageLocationRadius);
+
+    RenderMesh(meshes["package-destination-location-disk"], shaders["VertexColor"], packageMatrix);
+}
+
+void Tema2::RenderPackageLocationArrow() {
+
+    if (!package.isInTransit) {
+        // render package at source location
+        glm::mat4 packageMatrix = glm::mat4(1);
+        packageMatrix *= transform3D::Translate(drone.position.x, drone.position.y + 0.3f, drone.position.z);
+        packageMatrix *= transform3D::RotateOY(M_PI_2 + getAngleBetweenPoints(glm::vec2(drone.position.x, -drone.position.z), glm::vec2(package.sourceLocation.x  - (float)terrain.n / 2, -package.sourceLocation.z + (float)terrain.m / 2)));
+        packageMatrix *= transform3D::Scale(PACKAGE_ARROW_SIZE, PACKAGE_ARROW_SIZE, PACKAGE_ARROW_SIZE);
+
+        RenderMesh(meshes["package-location-arrow"], shaders["VertexColor"], packageMatrix);
+    } else {
+        // render package at source location
+        glm::mat4 packageMatrix = glm::mat4(1);
+        packageMatrix *= transform3D::Translate(drone.position.x, drone.position.y + 0.3f, drone.position.z);
+        packageMatrix *= transform3D::RotateOY(M_PI_2 + getAngleBetweenPoints(glm::vec2(drone.position.x, -drone.position.z), glm::vec2(package.destinationLocation.x - (float)terrain.n / 2, -package.destinationLocation.z + (float)terrain.m / 2)));
+        packageMatrix *= transform3D::Scale(PACKAGE_ARROW_SIZE, PACKAGE_ARROW_SIZE, PACKAGE_ARROW_SIZE);
+
+        RenderMesh(meshes["package-location-arrow"], shaders["VertexColor"], packageMatrix);
     }
 }
 
-void Tema2::RenderPackageLocationDisk(glm::vec3 location) {
-    // render package at source location
-    glm::mat4 packageMatrix = glm::mat4(1);
-    packageMatrix *= transform3D::Translate(location.x, location.y, location.z);
-    packageMatrix *= transform3D::Translate(-(float)terrain.n / 2, 0, -(float)terrain.m / 2);
-    packageMatrix *= transform3D::Scale(PACKAGE_SPOT_RADIUS_SIZE, PACKAGE_SPOT_RADIUS_SIZE, PACKAGE_SPOT_RADIUS_SIZE);
+void Tema2::DrawHUD()
+{
+    const float kTopY = 35.f;
+    const float kRowHeight = 25.f;
 
-    RenderMesh(meshes["package-location-disk"], shaders["VertexColor"], packageMatrix);
+    int rowIndex = 0;
+    std::string polygonModeText = "";
+
+    polygonModeText = "solid";
+
+    glm::ivec2 resolution = window->GetResolution();
+
+    roundTextRenderer->RenderText("Score: " + to_string(score), resolution.x / 2 - 40.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+
+    chrono::duration<double> remainingTime = stopTime - chrono::high_resolution_clock::now();
+
+    ostringstream strTime;
+    strTime << fixed << setprecision(2) << remainingTime.count();
+
+    roundTextRenderer->RenderText("Remaining time: " + strTime.str() + " s", resolution.x / 2 - 125.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+
+    if (!package.isInTransit) {
+        roundTextRenderer->RenderText("Go to package source location!", resolution.x / 2 - 165.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+    } else {
+        roundTextRenderer->RenderText("Go to package destination location!", resolution.x / 2 - 195.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+    }
+}
+
+void Tema2::showCouldNotGeneratePackageLocation() {
+    const float kTopY = 410.f;
+    const float kRowHeight = 55.f;
+
+    int rowIndex = 0;
+    std::string polygonModeText = "";
+
+    polygonModeText = "solid";
+
+    glm::ivec2 resolution = window->GetResolution();
+
+    playAgainTextRenderer->RenderText("Could not generate new package location!", resolution.x / 2 - 435.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+    playAgainTextRenderer->RenderText("Score: " + to_string(score), resolution.x / 2 - 70.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+    playAgainTextRenderer->RenderText("Click to play again!", resolution.x / 2 - 215.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+}
+
+void Tema2::showPlayAgainText() {
+    const float kTopY = 410.f;
+    const float kRowHeight = 55.f;
+
+    int rowIndex = 0;
+    std::string polygonModeText = "";
+
+    polygonModeText = "solid";
+
+    glm::ivec2 resolution = window->GetResolution();
+
+    playAgainTextRenderer->RenderText("Time expired!", resolution.x / 2 - 135.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+    playAgainTextRenderer->RenderText("Score: " + to_string(score), resolution.x / 2 - 70.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+    playAgainTextRenderer->RenderText("Click to play again!", resolution.x / 2 - 215.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
 }
 
 void Tema2::Update(float deltaTimeSeconds)
 {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    RenderDrone(deltaTimeSeconds);
-    RenderTerrain();
-    RenderTrees();
-    RenderBuildings();
-    RenderPackage();
+    chrono::duration<double> remainingTime = stopTime - chrono::high_resolution_clock::now();
+
+    if (remainingTime.count() >= 0) {
+        if (!couldGeneratePackageLocation) {
+            showCouldNotGeneratePackageLocation();
+            if (playAgainClicked) {
+                // reset current map parameters
+                trees.clear();
+                buildings.clear();
+                Init();
+            }
+        } else {
+            RenderDrone(deltaTimeSeconds);
+            RenderTerrain();
+            RenderTrees();
+            RenderBuildings();
+            packageLocationRadiusStep += deltaTimeSeconds;
+            RenderPackage();
+            RenderPackageLocationArrow();
+            DrawHUD();
+        }
+    } else {
+        showPlayAgainText();
+        if (playAgainClicked) {
+            playAgainClicked = false;
+            // reset current map obstacles
+            trees.clear();
+            buildings.clear();
+            Init();
+        }
+    }
+    
 }
 
 bool Tema2::DroneCollidesWithTerrain(glm::vec3 dronePosition) {
@@ -611,11 +756,6 @@ bool Tema2::DroneCollidesWithABuilding(glm::vec3 dronePosition) {
                 && bottom_right.z > droneZ - DRONE_SIZE
                 )
             {
-                //cout << "top left x=" << top_left.x << " < " << "drone x=" << droneX << "\n";
-                //cout << "top left z=" << top_left.z << " < " << "drone z=" << droneZ << "\n";
-                //cout << "top left x=" << bottom_right.x << " < " << "drone x=" << droneX << "\n";
-                //cout << "top left z=" << bottom_right.z << " < " << "drone z=" << droneZ << "\n\n";
-
                 return true;
             }
         }
@@ -628,8 +768,6 @@ bool Tema2::disksIntersect(glm::vec3 disk1Position, glm::vec3 disk2Position, flo
 
     float distDisksCenters = sqrt((disk1Position.x - disk2Position.x) * (disk1Position.x - disk2Position.x) +
                                   (disk1Position.z - disk2Position.z) * (disk1Position.z - disk2Position.z));
-
-    //cout << "drone x = " << xPoint << ", disk x = " << xDiskCenter << "\n";
 
     if (distDisksCenters <= (disk1Radius + disk2Radius)) {
         return true;
@@ -714,134 +852,137 @@ bool Tema2::DroneCollidesWithDestPackage() {
 
 void Tema2::OnInputUpdate(float deltaTime, int mods)
 {
-    // compute drone's forward and right directions
-    glm::vec3 forward = glm::vec3(sin(drone.angleOY), 0, cos(drone.angleOY));
-    glm::vec3 right = glm::vec3(cos(drone.angleOY), 0, -sin(drone.angleOY));
+    if (!gameInterrupted) {
 
-    // go left
-    if (window->KeyHold(GLFW_KEY_A) == true) {
-        // check if the drone does not collide with map's limits
-        if (!DroneCollidesWithMapLimits(drone.position - right * DRONE_SPEED * deltaTime)
-            && !DroneCollidesWithObstacles(drone.position - right * DRONE_SPEED * deltaTime)) 
-        {
-            drone.position -= right * DRONE_SPEED * deltaTime;
+        // compute drone's forward and right directions
+        glm::vec3 forward = glm::vec3(sin(drone.angleOY), 0, cos(drone.angleOY));
+        glm::vec3 right = glm::vec3(cos(drone.angleOY), 0, -sin(drone.angleOY));
+
+        // go left
+        if (window->KeyHold(GLFW_KEY_A) == true) {
+            // check if the drone does not collide with map's limits
+            if (!DroneCollidesWithMapLimits(drone.position - right * DRONE_SPEED * deltaTime)
+                && !DroneCollidesWithObstacles(drone.position - right * DRONE_SPEED * deltaTime))
+            {
+                drone.position -= right * DRONE_SPEED * deltaTime;
+            }
+            else if (DroneCollidesWithObstacles(drone.position - right * DRONE_SPEED * deltaTime)) {
+                // move the drone in the opposite direction
+                drone.position += glm::vec3(OBSTACLE_THROW_DISTANCE) * right * DRONE_SPEED * deltaTime;
+            }
         }
-        else if (DroneCollidesWithObstacles(drone.position - right * DRONE_SPEED * deltaTime)) {
-            // move the drone in the opposite direction
-            drone.position += glm::vec3(OBSTACLE_THROW_DISTANCE) * right * DRONE_SPEED * deltaTime;
+
+        // go right
+        if (window->KeyHold(GLFW_KEY_D) == true) {
+
+            // check if the drone does not collide with map's limits
+            if (!DroneCollidesWithMapLimits(drone.position + right * DRONE_SPEED * deltaTime)
+                && !DroneCollidesWithObstacles(drone.position + right * DRONE_SPEED * deltaTime))
+            {
+                drone.position += right * DRONE_SPEED * deltaTime;
+            }
+            else if (DroneCollidesWithObstacles(drone.position + right * DRONE_SPEED * deltaTime)) {
+                // move the drone in the opposite direction
+                drone.position -= glm::vec3(OBSTACLE_THROW_DISTANCE) * right * DRONE_SPEED * deltaTime;
+            }
+
         }
+
+        // go front
+        if (window->KeyHold(GLFW_KEY_W) == true) {
+
+            // check if the drone does not collide with map's limits
+            if (!DroneCollidesWithMapLimits(drone.position - forward * DRONE_SPEED * deltaTime)
+                && !DroneCollidesWithObstacles(drone.position - forward * DRONE_SPEED * deltaTime))
+            {
+                drone.position -= forward * DRONE_SPEED * deltaTime;
+            }
+            else if (DroneCollidesWithObstacles(drone.position - forward * DRONE_SPEED * deltaTime)) {
+                // move the drone in the opposite direction
+                drone.position += glm::vec3(OBSTACLE_THROW_DISTANCE) * forward * DRONE_SPEED * deltaTime;
+            }
+        }
+
+        // go back
+        if (window->KeyHold(GLFW_KEY_S) == true) {
+
+            // check if the drone does not collide with map's limits
+            if (!DroneCollidesWithMapLimits(drone.position + forward * DRONE_SPEED * deltaTime)
+                && !DroneCollidesWithObstacles(drone.position + forward * DRONE_SPEED * deltaTime))
+            {
+                drone.position += forward * DRONE_SPEED * deltaTime;
+            }
+            else if (DroneCollidesWithObstacles(drone.position + forward * DRONE_SPEED * deltaTime)) {
+                // move the drone in the opposite direction
+                drone.position -= glm::vec3(OBSTACLE_THROW_DISTANCE) * forward * DRONE_SPEED * deltaTime;
+            }
+
+        }
+
+        // go up
+        if (window->KeyHold(GLFW_KEY_Q) == true) {
+
+            // check if the drone does not collide with an obstacle
+            if (!DroneCollidesWithTerrain(glm::vec3(drone.position.x, drone.position.y - DRONE_SPEED * deltaTime, drone.position.z))
+                && !DroneCollidesWithObstacles(glm::vec3(drone.position.x, drone.position.y - DRONE_SPEED * deltaTime, drone.position.z)))
+            {
+                // apply the position change to the drone
+                drone.position.y -= DRONE_SPEED * deltaTime;
+            }
+            else if (DroneCollidesWithObstacles(glm::vec3(drone.position.x, drone.position.y - DRONE_SPEED * deltaTime, drone.position.z))) {
+                // move the drone in the opposite direction
+                drone.position.y += OBSTACLE_THROW_DISTANCE * DRONE_SPEED * deltaTime;
+            }
+
+        }
+
+        // go down
+        if (window->KeyHold(GLFW_KEY_E) == true) {
+
+            // check if the drone does not collide with an obstacle
+            if (!DroneCollidesWithObstacles(glm::vec3(drone.position.x, drone.position.y + DRONE_SPEED * deltaTime, drone.position.z))) {
+                // apply the position change to the drone
+                drone.position.y += DRONE_SPEED * deltaTime;
+            }
+            else if (DroneCollidesWithObstacles(glm::vec3(drone.position.x, drone.position.y + DRONE_SPEED * deltaTime, drone.position.z))) {
+                // move the drone in the opposite direction
+                drone.position.y -= OBSTACLE_THROW_DISTANCE * DRONE_SPEED * deltaTime;
+            }
+
+        }
+
+        // rotate right
+        if (window->KeyHold(GLFW_KEY_R) == true) {
+            drone.angleOY += (DRONE_SPEED / 3) * deltaTime;
+        }
+
+        // rotate left
+        if (window->KeyHold(GLFW_KEY_T) == true) {
+            drone.angleOY -= (DRONE_SPEED / 3) * deltaTime;
+        }
+
+        // check if the drone collides with the source-located package
+        if (package.isInTransit == false) {
+            if (DroneCollidesWithPackage()) {
+                package.isInTransit = true;
+            }
+        }
+        else {
+            // check if the drone has reached the destination of the package
+            if (DroneCollidesWithDestPackage()) {
+                score++;
+                generatePackageLocations();
+            }
+        }
+
+        glm::quat cameraRotationOY = glm::angleAxis(drone.angleOY, glm::vec3(0, 1, 0));
+        glm::quat cameraRotationOX = glm::angleAxis(-0.2f, glm::vec3(1, 0, 0));
+        glm::quat cameraRotation = cameraRotationOY * cameraRotationOX;
+
+        glm::vec3 cameraOffset = cameraRotation * glm::vec3(0, CAMERA_TO_DRONE_DIST_OY, CAMERA_TO_DRONE_DIST_OX);
+        SimpleScene::GetSceneCamera()->SetPosition(drone.position + cameraOffset);
+        SimpleScene::GetSceneCamera()->SetRotation(cameraRotation);
     }
-
-    // go right
-    if (window->KeyHold(GLFW_KEY_D) == true) {
-
-        // check if the drone does not collide with map's limits
-        if (!DroneCollidesWithMapLimits(drone.position + right * DRONE_SPEED * deltaTime)
-            && !DroneCollidesWithObstacles(drone.position + right * DRONE_SPEED * deltaTime))
-        {
-            drone.position += right * DRONE_SPEED * deltaTime;
-        }
-        else if (DroneCollidesWithObstacles(drone.position + right * DRONE_SPEED * deltaTime)) {
-            // move the drone in the opposite direction
-            drone.position -= glm::vec3(OBSTACLE_THROW_DISTANCE) * right * DRONE_SPEED * deltaTime;
-        }
-
-    }
-
-    // go front
-    if (window->KeyHold(GLFW_KEY_W) == true) {
-
-        // check if the drone does not collide with map's limits
-        if (!DroneCollidesWithMapLimits(drone.position - forward * DRONE_SPEED * deltaTime)
-            && !DroneCollidesWithObstacles(drone.position - forward * DRONE_SPEED * deltaTime))
-        {
-            drone.position -= forward * DRONE_SPEED * deltaTime;
-        }
-        else if (DroneCollidesWithObstacles(drone.position - forward * DRONE_SPEED * deltaTime)) {
-            // move the drone in the opposite direction
-            drone.position += glm::vec3(OBSTACLE_THROW_DISTANCE) * forward * DRONE_SPEED * deltaTime;
-        }
-    }
-
-    // go back
-    if (window->KeyHold(GLFW_KEY_S) == true) {
-
-        // check if the drone does not collide with map's limits
-        if (!DroneCollidesWithMapLimits(drone.position + forward * DRONE_SPEED * deltaTime)
-            && !DroneCollidesWithObstacles(drone.position + forward * DRONE_SPEED * deltaTime))
-        {
-            drone.position += forward * DRONE_SPEED * deltaTime;
-        }
-        else if (DroneCollidesWithObstacles(drone.position + forward * DRONE_SPEED * deltaTime)) {
-            // move the drone in the opposite direction
-            drone.position -= glm::vec3(OBSTACLE_THROW_DISTANCE) * forward * DRONE_SPEED * deltaTime;
-        }
-
-    }
-
-    // go up
-    if (window->KeyHold(GLFW_KEY_Q) == true) {
-
-        // check if the drone does not collide with an obstacle
-        if (!DroneCollidesWithTerrain(glm::vec3(drone.position.x, drone.position.y - DRONE_SPEED * deltaTime, drone.position.z))
-            && !DroneCollidesWithObstacles(glm::vec3(drone.position.x, drone.position.y - DRONE_SPEED * deltaTime, drone.position.z)))
-        {
-            // apply the position change to the drone
-            drone.position.y -= DRONE_SPEED * deltaTime;
-        }
-        else if (DroneCollidesWithObstacles(glm::vec3(drone.position.x, drone.position.y - DRONE_SPEED * deltaTime, drone.position.z))) {
-            // move the drone in the opposite direction
-            drone.position.y += OBSTACLE_THROW_DISTANCE *DRONE_SPEED * deltaTime;
-        }
-
-    }
-
-    // go down
-    if (window->KeyHold(GLFW_KEY_E) == true) {
-
-        // check if the drone does not collide with an obstacle
-        if (!DroneCollidesWithObstacles(glm::vec3(drone.position.x, drone.position.y + DRONE_SPEED * deltaTime, drone.position.z))) {
-            // apply the position change to the drone
-            drone.position.y += DRONE_SPEED * deltaTime;
-        }
-        else if (DroneCollidesWithObstacles(glm::vec3(drone.position.x, drone.position.y + DRONE_SPEED * deltaTime, drone.position.z))) {
-            // move the drone in the opposite direction
-            drone.position.y -= OBSTACLE_THROW_DISTANCE * DRONE_SPEED * deltaTime;
-        }
-
-    }
-
-    // rotate right
-    if (window->KeyHold(GLFW_KEY_R) == true) {
-        drone.angleOY += (DRONE_SPEED / 2) * deltaTime;
-    }
-
-    // rotate left
-    if (window->KeyHold(GLFW_KEY_T) == true) {
-        drone.angleOY -= (DRONE_SPEED / 2) * deltaTime;
-    }
-
-    // check if the drone collides with the source-located package
-    if (package.isInTransit == false) {
-        if (DroneCollidesWithPackage()) {
-            package.isInTransit = true;
-        }
-    } else {
-        // check if the drone has reached the destination of the package
-        if (DroneCollidesWithDestPackage()) {
-            score++;
-            cout << "New score: " << score << "\n";
-            generatePackageLocations();
-        }
-    }
-
-    glm::quat cameraRotationOY = glm::angleAxis(drone.angleOY, glm::vec3(0, 1, 0));
-    glm::quat cameraRotationOX = glm::angleAxis(-0.2f, glm::vec3(1, 0, 0));
-    glm::quat cameraRotation = cameraRotationOY * cameraRotationOX;
-
-    glm::vec3 cameraOffset = cameraRotation * glm::vec3(0, CAMERA_TO_DRONE_DIST_OY, CAMERA_TO_DRONE_DIST_OX);
-    SimpleScene::GetSceneCamera()->SetPosition(drone.position + cameraOffset);
-    SimpleScene::GetSceneCamera()->SetRotation(cameraRotation);
 }
 
 void Tema2::OnKeyPress(int key, int mods)
@@ -862,6 +1003,9 @@ void Tema2::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
 
 void Tema2::OnMouseBtnPress(int mouseX, int mouseY, int button, int mods)
 {
+    if (button == GLFW_MOUSE_BUTTON_2) {
+        playAgainClicked = true;
+    }
 }
 
 

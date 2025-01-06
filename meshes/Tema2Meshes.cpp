@@ -9,14 +9,15 @@ using namespace std;
 using namespace m1;
 
 // Mesh colors
-#define COLOR_GRAY                   0.85, 0.85, 0.85
-#define COLOR_BLACK                  0, 0, 0
+#define COLOR_GRAY                       0.85, 0.85, 0.85
+#define COLOR_BLACK                      0, 0, 0
 
-#define DISK_TRIANGLES_NUM           50
-#define TREE_TRUNK_COLOR             0.294, 0.224, 0.16
-#define TREE_LEAVES_COLOR            0.455, 0.77, 0.363
-#define TREE_TOP_LEAVES_COLOR        0.255, 0.27, 0.263
-#define PACKAGE_LOCATION_DISK_COLOR  1, 1, 0
+#define DISK_TRIANGLES_NUM               50
+#define TREE_TRUNK_COLOR                 0.294, 0.224, 0.16
+#define TREE_LEAVES_COLOR                0.455, 0.77, 0.363
+#define TREE_TOP_LEAVES_COLOR            0.255, 0.27, 0.263
+#define PACKAGE_SRC_LOCATION_DISK_COLOR  1, 1, 0
+#define PACKAGE_DST_LOCATION_DISK_COLOR  1, 0, 0
 
 void Tema2::CreateMesh(const char* name, const std::vector<VertexFormat>& vertices, const std::vector<unsigned int>& indices)
 {
@@ -745,19 +746,19 @@ void Tema2::AddPackageMesh()
     CreateMesh("package", vertices, indices);
 }
 
-void Tema2::AddPackageLocationMesh()
+void Tema2::AddPackageSrcLocationMesh()
 {
     unsigned int k = 50;
     vector<VertexFormat> vertices;
     vector<unsigned int> indices;
 
     // add origin of (x,z) = (0, 0)
-    vertices.push_back(VertexFormat(glm::vec3(0, 0, 0), glm::vec3(PACKAGE_LOCATION_DISK_COLOR)));
+    vertices.push_back(VertexFormat(glm::vec3(0, 0, 0), glm::vec3(PACKAGE_SRC_LOCATION_DISK_COLOR)));
 
     // insert all the vertices of the disk
     for (unsigned int i = 1; i <= k; i++) {
         vertices.push_back(VertexFormat(glm::vec3(cos(((float)i / k) * 2 * 3.14f), 0, sin(((float)i / k) * 2 * 3.14f)),
-            glm::vec3(PACKAGE_LOCATION_DISK_COLOR)));
+            glm::vec3(PACKAGE_SRC_LOCATION_DISK_COLOR)));
     }
 
     // insert all the indices of the disk
@@ -773,5 +774,56 @@ void Tema2::AddPackageLocationMesh()
     indices.push_back(k);
 
     // Actually create the mesh from the data
-    CreateMesh("package-location-disk", vertices, indices);
+    CreateMesh("package-source-location-disk", vertices, indices);
+}
+
+void Tema2::AddPackageDstLocationMesh()
+{
+    unsigned int k = 50;
+    vector<VertexFormat> vertices;
+    vector<unsigned int> indices;
+
+    // add origin of (x,z) = (0, 0)
+    vertices.push_back(VertexFormat(glm::vec3(0, 0, 0), glm::vec3(PACKAGE_DST_LOCATION_DISK_COLOR)));
+
+    // insert all the vertices of the disk
+    for (unsigned int i = 1; i <= k; i++) {
+        vertices.push_back(VertexFormat(glm::vec3(cos(((float)i / k) * 2 * 3.14f), 0, sin(((float)i / k) * 2 * 3.14f)),
+            glm::vec3(PACKAGE_DST_LOCATION_DISK_COLOR)));
+    }
+
+    // insert all the indices of the disk
+    for (unsigned int i = 2; i <= k; i++) {
+        indices.push_back(i);
+        indices.push_back(0);
+        indices.push_back(i - 1);
+    }
+
+    // add last triangle indices of the disk
+    indices.push_back(1);
+    indices.push_back(0);
+    indices.push_back(k);
+
+    // Actually create the mesh from the data
+    CreateMesh("package-destination-location-disk", vertices, indices);
+}
+
+void Tema2::AddPackageLocationArrowMesh()
+{
+    vector<VertexFormat> vertices
+    {
+        VertexFormat(glm::vec3(0, 0, 0.5), glm::vec3(0.1f, 0.9f, 1)),      // top      0
+        VertexFormat(glm::vec3(-0.35, 0, -0.35), glm::vec3(0.1f, 0.5f, 1)),  // left     1
+        VertexFormat(glm::vec3(0, 0, -0.2), glm::vec3(0.1f, 0.5f, 1)),     // center    2
+        VertexFormat(glm::vec3(0.35, 0, -0.35), glm::vec3(0.1f, 0.5f, 1)),   // right   3
+    };
+
+    vector<unsigned int> indices =
+    {
+        0, 1, 2,
+        2, 3, 0,
+    };
+
+    // Create the mesh from the data
+    CreateMesh("package-location-arrow", vertices, indices);
 }

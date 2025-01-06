@@ -1,5 +1,8 @@
 #pragma once
 
+#include <chrono>
+#include <iomanip>
+
 #include "components/simple_scene.h"
 #include "lab_m1/Tema2/meshes/transform3D.h"
 #include "lab_m1/Tema2/drone/Drone.h"
@@ -7,7 +10,7 @@
 #include "lab_m1/Tema2/obstacles/Tree.h"
 #include "lab_m1/Tema2/obstacles/Building.h"
 #include "lab_m1/Tema2/package/Package.h"
-#include "lab_m1/Tema2/textbox/TextBox.h"
+#include "lab_m1/Tema2/basic_text/basic_text.h"
 
 #define LEAVES_DISK_SCALE      3
 #define TREE_TRUNK_HEIGHT      5
@@ -33,8 +36,12 @@ namespace m1
         void RenderTrees();
         void RenderBuildings();
         void RenderPackage();
-        void RenderPackageLocationDisk(glm::vec3 location);
-        void RenderText(std::string text, float posX, float posY, float scale, glm::vec3 color, bool isAligned);
+        void RenderPackageLocationArrow();
+        void RenderPackageSrcLocationDisk();
+        void RenderPackageDstLocationDisk();
+        void DrawHUD();
+        void showCouldNotGeneratePackageLocation();
+        void showPlayAgainText();
 
         void FrameStart() override;
         void FrameEnd() override;
@@ -55,7 +62,9 @@ namespace m1
         void AddTreeMesh();
         void AddBuildingMesh();
         void AddPackageMesh();
-        void AddPackageLocationMesh();
+        void AddPackageSrcLocationMesh();
+        void AddPackageDstLocationMesh();
+        void AddPackageLocationArrowMesh();
 
         bool treeIntersectsWithOtherTree(Tree *currentTree, Tree obstacleTree);
         bool treeIntersectsWithBuilding(Tree* currentTree, Building obstacleBuilding);
@@ -78,8 +87,9 @@ namespace m1
         bool packageIntersectsWithTree(glm::vec3 packagePosition, Tree obstacleTree);
         bool packageIntersectsWithBuilding(glm::vec3 packagePosition, Building obstacleBuilding);
 
+        float getAngleBetweenPoints(glm::vec2 p1, glm::vec2 p2);
+
     protected:
-        //implemented::DroneCamera* camera;
         glm::mat4 projectionMatrix;
         Drone drone;
         Terrain terrain;
@@ -87,5 +97,23 @@ namespace m1
         vector<Building> buildings;
         Package package;
         unsigned int score;
+        bool timeExpired;
+        bool playAgainClicked;
+        bool couldGeneratePackageLocation;
+        bool gameInterrupted;
+
+        /* for animated package locations disks */
+        float packageLocationRadius;
+        float packageLocationRadiusStep;
+
+        /* for text */
+        gfxc::TextRenderer* roundTextRenderer;
+        gfxc::TextRenderer* playAgainTextRenderer;
+        const glm::vec3 kTextColor = NormalizedRGB(0, 0, 0);
+        const glm::vec3 kBackgroundColor = NormalizedRGB(41, 45, 62);
+
+        /* for cronometer */
+        chrono::time_point<std::chrono::high_resolution_clock> startTime;
+        chrono::time_point<std::chrono::high_resolution_clock> stopTime;
     };
 }   // namespace m1
