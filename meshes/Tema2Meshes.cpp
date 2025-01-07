@@ -223,12 +223,12 @@ void Tema2::AddDroneMesh()
         VertexFormat(glm::vec3(0.1, -0.1, -1), glm::vec3(COLOR_GRAY)),    // bottom-left - 23
 
         // for the cube
-        VertexFormat(glm::vec3(-0.1, 0.3, -1), glm::vec3(COLOR_GRAY)),     // top - 24
-        VertexFormat(glm::vec3(0.1, 0.3, -1), glm::vec3(COLOR_GRAY)),      // top - 25
-        VertexFormat(glm::vec3(-0.1, 0.1, -0.8), glm::vec3(COLOR_GRAY)),   // bottom - 26
-        VertexFormat(glm::vec3(0.1, 0.1, -0.8), glm::vec3(COLOR_GRAY)),    // bottom - 27
-        VertexFormat(glm::vec3(-0.1, 0.3, -0.8), glm::vec3(COLOR_GRAY)),   // 1st corner - 28
-        VertexFormat(glm::vec3(0.1, 0.3, -0.8), glm::vec3(COLOR_GRAY)),    // 2nd corner - 29
+        VertexFormat(glm::vec3(-0.1, 0.3, -1), glm::vec3(COLOR_GRAY)),    // top - 24
+        VertexFormat(glm::vec3(0.1, 0.3, -1), glm::vec3(COLOR_GRAY)),     // top - 25
+        VertexFormat(glm::vec3(-0.1, 0.1, -0.8), glm::vec3(COLOR_GRAY)),  // bottom - 26
+        VertexFormat(glm::vec3(0.1, 0.1, -0.8), glm::vec3(COLOR_GRAY)),   // bottom - 27
+        VertexFormat(glm::vec3(-0.1, 0.3, -0.8), glm::vec3(COLOR_GRAY)),  // 1st corner - 28
+        VertexFormat(glm::vec3(0.1, 0.3, -0.8), glm::vec3(COLOR_GRAY)),   // 2nd corner - 29
 
         /* 4th part */
 
@@ -667,16 +667,16 @@ void Tema2::AddBuildingMesh()
     vector<VertexFormat> vertices
     {
         // Front
-        VertexFormat(glm::vec3(-0.5, 0, 0.5), glm::vec3(0.5f, 0.5f, 0.5f)),   // Bottom-left     0
-        VertexFormat(glm::vec3(0.5, 0,  0.5), glm::vec3(0.8f, 0.8f, 0.8f)),   // Bottom-right   1
-        VertexFormat(glm::vec3(0.5,  1,  0.5), glm::vec3(0.5f, 0.5f, 0.5f)),   // Top-right      2
+        VertexFormat(glm::vec3(-0.5, 0, 0.5), glm::vec3(0.5f, 0.5f, 0.5f)),    // Bottom-left   0
+        VertexFormat(glm::vec3(0.5, 0,  0.5), glm::vec3(0.8f, 0.8f, 0.8f)),    // Bottom-right  1
+        VertexFormat(glm::vec3(0.5,  1,  0.5), glm::vec3(0.5f, 0.5f, 0.5f)),   // Top-right     2
         VertexFormat(glm::vec3(-0.5,  1,  0.5), glm::vec3(0.5f, 0.5f, 0.5f)),  // Top-left      3
 
         // Back
-        VertexFormat(glm::vec3(-0.5, 0, -0.5), glm::vec3(0.5f, 0.5f, 0.5f)),  // Bottom-left  4
-        VertexFormat(glm::vec3(0.5, 0, -0.5), glm::vec3(0.5f, 0.5f, 0.5f)),   // Bottom-right  5
+        VertexFormat(glm::vec3(-0.5, 0, -0.5), glm::vec3(0.5f, 0.5f, 0.5f)),   // Bottom-left   4
+        VertexFormat(glm::vec3(0.5, 0, -0.5), glm::vec3(0.5f, 0.5f, 0.5f)),    // Bottom-right  5
         VertexFormat(glm::vec3(0.5,  1, -0.5), glm::vec3(0.5f, 0.5f, 0.5f)),   // Top-right     6
-        VertexFormat(glm::vec3(-0.5,  1, -0.5), glm::vec3(0.8f, 0.8f, 0.8f)),  // Top-left     7
+        VertexFormat(glm::vec3(-0.5,  1, -0.5), glm::vec3(0.8f, 0.8f, 0.8f)),  // Top-left      7
     };
 
     vector<unsigned int> indices =
@@ -709,16 +709,16 @@ void Tema2::AddPackageMesh()
     vector<VertexFormat> vertices
     {
         // Front
-        VertexFormat(glm::vec3(-0.5, 0, 0.5), glm::vec3(1, 0.5f, 0.5f)),   // Bottom-left     0
-        VertexFormat(glm::vec3(0.5, 0,  0.5), glm::vec3(1, 0.8f, 0.8f)),   // Bottom-right   1
-        VertexFormat(glm::vec3(0.5,  1,  0.5), glm::vec3(1, 0.5f, 0.5f)),   // Top-right      2
-        VertexFormat(glm::vec3(-0.5,  1,  0.5), glm::vec3(1, 0.5f, 0.5f)),  // Top-left      3
+        VertexFormat(glm::vec3(-0.5, 0, 0.5), glm::vec3(0.596, 0.458, 0.329)),    // Bottom-left   0
+        VertexFormat(glm::vec3(0.5, 0,  0.5), glm::vec3(0.898, 0.827, 0.70)),     // Bottom-right  1
+        VertexFormat(glm::vec3(0.5,  1,  0.5), glm::vec3(0.898, 0.827, 0.70)),    // Top-right     2
+        VertexFormat(glm::vec3(-0.5,  1,  0.5), glm::vec3(0.596, 0.458, 0.329)),  // Top-left      3
 
         // Back
-        VertexFormat(glm::vec3(-0.5, 0, -0.5), glm::vec3(1, 0.5f, 0.5f)),  // Bottom-left  4
-        VertexFormat(glm::vec3(0.5, 0, -0.5), glm::vec3(1, 0.5f, 0.5f)),   // Bottom-right  5
-        VertexFormat(glm::vec3(0.5,  1, -0.5), glm::vec3(1, 0.5f, 0.5f)),   // Top-right     6
-        VertexFormat(glm::vec3(-0.5,  1, -0.5), glm::vec3(1, 0.8f, 0.8f)),  // Top-left     7
+        VertexFormat(glm::vec3(-0.5, 0, -0.5), glm::vec3(0.898, 0.827, 0.70)),    // Bottom-left   4
+        VertexFormat(glm::vec3(0.5, 0, -0.5), glm::vec3(0.596, 0.458, 0.329)),    // Bottom-right  5
+        VertexFormat(glm::vec3(0.5,  1, -0.5), glm::vec3(0.596, 0.458, 0.329)),   // Top-right     6
+        VertexFormat(glm::vec3(-0.5,  1, -0.5), glm::vec3(0.898, 0.827, 0.70)),   // Top-left      7
     };
 
     vector<unsigned int> indices =
@@ -812,10 +812,10 @@ void Tema2::AddPackageLocationArrowMesh()
 {
     vector<VertexFormat> vertices
     {
-        VertexFormat(glm::vec3(0, 0, 0.5), glm::vec3(0.1f, 0.9f, 1)),      // top      0
+        VertexFormat(glm::vec3(0, 0, 0.5), glm::vec3(0.1f, 0.9f, 1)),        // top      0
         VertexFormat(glm::vec3(-0.35, 0, -0.35), glm::vec3(0.1f, 0.5f, 1)),  // left     1
-        VertexFormat(glm::vec3(0, 0, -0.2), glm::vec3(0.1f, 0.5f, 1)),     // center    2
-        VertexFormat(glm::vec3(0.35, 0, -0.35), glm::vec3(0.1f, 0.5f, 1)),   // right   3
+        VertexFormat(glm::vec3(0, 0, -0.2), glm::vec3(0.1f, 0.5f, 1)),       // center   2
+        VertexFormat(glm::vec3(0.35, 0, -0.35), glm::vec3(0.1f, 0.5f, 1)),   // right    3
     };
 
     vector<unsigned int> indices =
@@ -826,4 +826,24 @@ void Tema2::AddPackageLocationArrowMesh()
 
     // Create the mesh from the data
     CreateMesh("package-location-arrow", vertices, indices);
+}
+
+void Tema2::AddDroneLocationMinimapArrowMesh()
+{
+    vector<VertexFormat> vertices
+    {
+        VertexFormat(glm::vec3(0, 0, 0.5), glm::vec3(0.9f, 0.9f, 0.9f)),        // top      0
+        VertexFormat(glm::vec3(-0.35, 0, -0.35), glm::vec3(0.9f, 0.9f, 0.9f)),  // left     1
+        VertexFormat(glm::vec3(0, 0, -0.2), glm::vec3(0.9f, 0.9f, 0.9f)),       // center   2
+        VertexFormat(glm::vec3(0.35, 0, -0.35), glm::vec3(0.9f, 0.9f, 0.9f)),   // right    3
+    };
+
+    vector<unsigned int> indices =
+    {
+        0, 1, 2,
+        2, 3, 0,
+    };
+
+    // Create the mesh from the data
+    CreateMesh("drone-location-minimap-arrow", vertices, indices);
 }

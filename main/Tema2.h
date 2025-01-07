@@ -11,6 +11,8 @@
 #include "lab_m1/Tema2/obstacles/Building.h"
 #include "lab_m1/Tema2/package/Package.h"
 #include "lab_m1/Tema2/basic_text/basic_text.h"
+#include "lab_m1/Tema2/random/Random.h"
+#include "lab_m1/Tema2/minimap/Minimap.h"
 
 #define LEAVES_DISK_SCALE      3
 #define TREE_TRUNK_HEIGHT      5
@@ -36,9 +38,15 @@ namespace m1
         void RenderTrees();
         void RenderBuildings();
         void RenderPackage();
+        void RenderLocation();
+        void RenderLocationOnMinimap();
         void RenderPackageLocationArrow();
+        void RenderDroneLocationMinimapArrow();
         void RenderPackageSrcLocationDisk();
+        void RenderPackageSrcLocationDiskMinimap();
         void RenderPackageDstLocationDisk();
+        void RenderPackageDstLocationDiskMinimap();
+        void RenderGameIntro();
         void DrawHUD();
         void showCouldNotGeneratePackageLocation();
         void showPlayAgainText();
@@ -56,6 +64,7 @@ namespace m1
         void OnMouseScroll(int mouseX, int mouseY, int offsetX, int offsetY) override;
         void OnWindowResize(int width, int height) override;
 
+        void AddAllMeshes();
         void AddDroneMesh();
         void AddDronePropellerMesh();
         void AddTerrainMesh(Terrain *terrain);
@@ -65,6 +74,7 @@ namespace m1
         void AddPackageSrcLocationMesh();
         void AddPackageDstLocationMesh();
         void AddPackageLocationArrowMesh();
+        void AddDroneLocationMinimapArrowMesh();
 
         bool treeIntersectsWithOtherTree(Tree *currentTree, Tree obstacleTree);
         bool treeIntersectsWithBuilding(Tree* currentTree, Building obstacleBuilding);
@@ -77,6 +87,7 @@ namespace m1
         bool DroneCollidesWithDestPackage();
         bool disksIntersect(glm::vec3 dronePosition, glm::vec3 treePosition, float trunkRadius, float droneRadius);
 
+        void StartNewRound();
         bool buildingIntersectsWithOtherBuilding(Building* currentBuilding, Building obstacleBuilding);
         Tree* generateRandomTree(Tree* currentTree);
         Building* generateRandomBuilding(Building* currentBuilding);
@@ -86,6 +97,7 @@ namespace m1
         bool generateRandomPackage();
         bool packageIntersectsWithTree(glm::vec3 packagePosition, Tree obstacleTree);
         bool packageIntersectsWithBuilding(glm::vec3 packagePosition, Building obstacleBuilding);
+        glm::vec3 getDroneInitialPosition();
 
         float getAngleBetweenPoints(glm::vec2 p1, glm::vec2 p2);
 
@@ -100,13 +112,19 @@ namespace m1
         bool timeExpired;
         bool playAgainClicked;
         bool couldGeneratePackageLocation;
+        bool gameStarted;
         bool gameInterrupted;
+
+        /* mini-map */
+        Minimap minimap;
 
         /* for animated package locations disks */
         float packageLocationRadius;
         float packageLocationRadiusStep;
 
         /* for text */
+        gfxc::TextRenderer* titleTextRenderer;
+        gfxc::TextRenderer* subtextRenderer;
         gfxc::TextRenderer* roundTextRenderer;
         gfxc::TextRenderer* playAgainTextRenderer;
         const glm::vec3 kTextColor = NormalizedRGB(0, 0, 0);

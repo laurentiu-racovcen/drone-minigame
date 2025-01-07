@@ -3,7 +3,6 @@
 #include "components/simple_scene.h"
 #include "components/text_renderer.h"
 
-
 namespace extra
 {
     class BasicText : public gfxc::SimpleScene

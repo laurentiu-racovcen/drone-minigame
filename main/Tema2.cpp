@@ -1,37 +1,38 @@
 #include "lab_m1/Tema2/main/Tema2.h"
-#include "lab_m1/Tema2/random/Random.h"
 
 #include <iostream>
 
 using namespace std;
 using namespace m1;
 
-#define SKY_COLOR                 0.6705, 0.788,  0.8529
-#define TERRAIN_COLOR             0.455, 0.57, 0.293
+#define SKY_COLOR                  0.6705, 0.788,  0.8529
+#define TERRAIN_COLOR              0.455, 0.57, 0.293
 
-#define DRONE_SIZE                1
-#define DRONE_INITIAL_POSITION    0, 10, 0
-#define DRONE_SPEED               12.0f
-#define DRONE_PROPELLERS_SPEED    10
-#define OBSTACLE_THROW_DISTANCE   30.0f
+#define DRONE_SIZE                 1
+#define DRONE_INITIAL_POSITION     0, 10, 0
+#define DRONE_SPEED                12.0f
+#define DRONE_PROPELLERS_SPEED     10
+#define OBSTACLE_THROW_DISTANCE    30.0f
 
-#define CAMERA_TO_DRONE_DIST_OX   6.5
-#define CAMERA_TO_DRONE_DIST_OY   1.25
+#define CAMERA_TO_DRONE_DIST_OX    6.5
+#define CAMERA_TO_DRONE_DIST_OY    1.25
 
-#define TERRAIN_WIDTH             200
-#define TERRAIN_LENGTH            200
-#define MIN_TREE_SCALE            0.55f
-#define MAX_TREE_SCALE            2.0f
-#define TREES_NUMBER              12
+#define TERRAIN_WIDTH              200
+#define TERRAIN_LENGTH             200
+#define MIN_TREE_SCALE             0.55f
+#define MAX_TREE_SCALE             2.0f
+#define TREES_NUMBER               50
 
-#define BUILDINGS_NUMBER          100
-#define MIN_BUILDING_SCALE        5.5f
-#define MAX_BUILDING_SCALE        20
+#define BUILDINGS_NUMBER           20
+#define MIN_BUILDING_SCALE         5.5f
+#define MAX_BUILDING_SCALE         20
 
-#define MIN_PACKAGE_SCALE         1.0f
-#define MAX_PACKAGE_SCALE         3.0f
-#define PACKAGE_SPOT_RADIUS_SIZE  3.0f
-#define PACKAGE_ARROW_SIZE        1.2f
+#define MIN_PACKAGE_SCALE          1.0f
+#define MAX_PACKAGE_SCALE          3.0f
+#define PACKAGE_SPOT_RADIUS_SIZE   3.0f
+#define PACKAGE_ARROW_SIZE         1.2f
+
+#define LOCATION_SEARCH_TRIES_NUM  20
 
 Tema2::Tema2()
 {
@@ -43,12 +44,11 @@ Tema2::~Tema2()
 
 void Tema2::Init()
 {
+    gameStarted = false;
+
     // initialize propellers angle
     drone.propellersAngle = 0;
     drone.angleOY = 0;
-
-    // initialize drone coordinates
-    drone.position = glm::vec3(DRONE_INITIAL_POSITION);
 
     // initialize the terrain
     unsigned int terrainM = TERRAIN_WIDTH;
@@ -57,17 +57,7 @@ void Tema2::Init()
     terrain = Terrain(terrainM, terrainN, terrainColor);
 
     // add all objects meshes
-	AddDroneMesh();
-    AddDronePropellerMesh();
-    AddTreeMesh();
-    AddBuildingMesh();
-    AddPackageMesh();
-    AddPackageSrcLocationMesh();
-    AddPackageDstLocationMesh();
-    AddPackageLocationArrowMesh();
-    AddTerrainMesh(&terrain);
-    generateRandomBuildings(BUILDINGS_NUMBER, terrain.m, terrain.n);
-    generateRandomTrees(TREES_NUMBER, terrain.m, terrain.n);
+    AddAllMeshes();
 
     // add terrain shader
     Shader* shader = new Shader("TerrainShader");
@@ -77,24 +67,54 @@ void Tema2::Init()
     shaders[shader->GetName()] = shader;
 
     // add text object
-    // Create the text renderer object
+    // create the text renderer objects
     glm::ivec2 resolution = window->GetResolution();
+
+    titleTextRenderer = new gfxc::TextRenderer(window->props.selfDir, resolution.x, resolution.y);
+    titleTextRenderer->Load(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::FONTS, "Hack-Bold.ttf"), 100);
+
     roundTextRenderer = new gfxc::TextRenderer(window->props.selfDir, resolution.x, resolution.y);
     roundTextRenderer->Load(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::FONTS, "Hack-Bold.ttf"), 20);
 
     playAgainTextRenderer = new gfxc::TextRenderer(window->props.selfDir, resolution.x, resolution.y);
     playAgainTextRenderer->Load(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::FONTS, "Hack-Bold.ttf"), 40);
 
+    subtextRenderer = new gfxc::TextRenderer(window->props.selfDir, resolution.x, resolution.y);
+    subtextRenderer->Load(PATH_JOIN(window->props.selfDir, RESOURCE_PATH::FONTS, "Hack-Bold.ttf"), 20);
+
+    StartNewRound();
+}
+
+void Tema2::AddAllMeshes() {
+    AddDroneMesh();
+    AddDronePropellerMesh();
+    AddTreeMesh();
+    AddBuildingMesh();
+    AddPackageMesh();
+    AddPackageSrcLocationMesh();
+    AddPackageDstLocationMesh();
+    AddPackageLocationArrowMesh();
+    AddDroneLocationMinimapArrowMesh();
+    AddTerrainMesh(&terrain);
+}
+
+void Tema2::StartNewRound() {
+    generateRandomBuildings(BUILDINGS_NUMBER, terrain.m, terrain.n);
+    generateRandomTrees(TREES_NUMBER, terrain.m, terrain.n);
+
+    // initialize drone coordinates
+    drone.position = getDroneInitialPosition();
+
     gameInterrupted = false;
     couldGeneratePackageLocation = true;
 
-    // initialize the package
+    // initialize the package and package's source and destination locations
     generatePackageLocations();
 
     // initialize the score and package location radius
     score = 0;
     packageLocationRadius = PACKAGE_SPOT_RADIUS_SIZE;
-    packageLocationRadiusStep = 0;
+    packageLocationRadiusStep = 0; // for location disk animation
 
     // record start time
     startTime = std::chrono::high_resolution_clock::now();
@@ -102,24 +122,40 @@ void Tema2::Init()
     // record stop time
     stopTime = std::chrono::high_resolution_clock::now() + chrono::seconds(60);
 
+    // initialize check variables
     timeExpired = false;
     playAgainClicked = false;
+
+    glm::ivec2 resolution = window->GetResolution();
+
+    // initialize the minimap
+    minimap = Minimap(0, 0, resolution.x, resolution.y);
 }
 
 void Tema2::FrameStart()
 {
-    // Clears the color buffer (using the previously set color) and depth buffer
-    glClearColor(SKY_COLOR, 1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glm::ivec2 resolution = window->GetResolution();
-
-    // Sets the screen area where to draw
-    glViewport(0, 0, resolution.x, resolution.y);
 }
 
 void Tema2::FrameEnd()
 {
+}
+
+/* Function that returns the initial position of the drone
+ * based on the tallest obstacle */
+glm::vec3 Tema2::getDroneInitialPosition() {
+    float maxHeight = 0;
+    for (size_t i = 0; i < trees.size(); i++) {
+        if (trees[i].position.y + (TREE_TRUNK_HEIGHT + TREE_LEAVES_HEIGHT + 2 * LEAVES_DISTANCE) * trees[i].scale > maxHeight) {
+            maxHeight = trees[i].position.y + (TREE_TRUNK_HEIGHT + TREE_LEAVES_HEIGHT + 2 * LEAVES_DISTANCE) * trees[i].scale;
+        }
+    }
+
+    for (size_t i = 0; i < buildings.size(); i++) {
+        if (buildings[i].position.y + buildings[i].scale.y > maxHeight) {
+            maxHeight = buildings[i].position.y + buildings[i].scale.y;
+        }
+    }
+    return glm::vec3(0, maxHeight + DRONE_SIZE * 0.5f, 0);
 }
 
 bool Tema2::treeIntersectsWithOtherTree(Tree* currentTree, Tree obstacleTree) {
@@ -166,9 +202,10 @@ bool Tema2::treeIntersectsWithBuilding(Tree* currentTree, Building obstacleBuild
     return true;
 }
 
-// Function that searches for an obstacle-free position
+/* Function that searches for an obstacle-free position
+ * in order to set the position of a tree */
 Tree *Tema2::generateRandomTree(Tree* currentTree) {
-    unsigned int tries = 20;
+    unsigned int tries = LOCATION_SEARCH_TRIES_NUM;
     while (tries != 0) {
         currentTree->scale = MAX_TREE_SCALE * Random::noise(glm::vec2(0.5, rand()));
         if (currentTree->scale < MIN_TREE_SCALE) {
@@ -206,8 +243,6 @@ Tree *Tema2::generateRandomTree(Tree* currentTree) {
     // a free spot has NOT been found for the current tree
     return NULL;
 }
-
-
 
 void Tema2::generateRandomTrees(unsigned int treesNum, unsigned int terrainWidth, unsigned int terrainLength) {
     for (unsigned int i = 0; i < treesNum; i++) {
@@ -261,7 +296,7 @@ bool Tema2::packageIntersectsWithBuilding(glm::vec3 packagePosition, Building ob
 }
 
 bool Tema2::generateRandomPackage() {
-    unsigned int tries = 20;
+    unsigned int tries = LOCATION_SEARCH_TRIES_NUM;
     while (tries != 0) {
         package.scale = MAX_PACKAGE_SCALE * Random::noise(glm::vec2(0.5, rand()));
         if (package.scale < MIN_PACKAGE_SCALE) {
@@ -292,7 +327,6 @@ bool Tema2::generateRandomPackage() {
 
         // a free source package spot has been found;
         // now find a free destination spot
-
         package.destinationLocation.x = terrain.n * Random::noise(glm::vec2(0.5, rand()));
         package.destinationLocation.z = terrain.m * Random::noise(glm::vec2(0.5, rand()));
         package.destinationLocation.y = MAX_TERRAIN_HEIGHT;
@@ -334,7 +368,6 @@ void Tema2::generatePackageLocations() {
 }
 
 bool Tema2::buildingIntersectsWithOtherBuilding(Building* currentBuilding, Building obstacleBuilding) {
-
     // check right1 side with left2 side
     float right1 = currentBuilding->position.x + 1.0f * currentBuilding->scale.x / 2;
     float left2 = obstacleBuilding.position.x - 1.0f * obstacleBuilding.scale.x / 2;
@@ -371,7 +404,7 @@ bool Tema2::buildingIntersectsWithOtherBuilding(Building* currentBuilding, Build
 }
 
 Building *Tema2::generateRandomBuilding(Building* currentBuilding) {
-    unsigned int tries = 20;
+    unsigned int tries = LOCATION_SEARCH_TRIES_NUM;
     while (tries != 0) {
         float randomScaleX = MAX_BUILDING_SCALE * Random::noise(glm::vec2(0.5, rand()));
         if (randomScaleX < MIN_BUILDING_SCALE) {
@@ -529,68 +562,112 @@ void Tema2::RenderPackage() {
         packageMatrix *= transform3D::Scale(package.scale, package.scale, package.scale);
 
         RenderMesh(meshes["package"], shaders["VertexColor"], packageMatrix);
-
-        // also render the source location disk
-        RenderPackageSrcLocationDisk();
     } else {
         // render the package following the drone
         glm::mat4 packageMatrix = glm::mat4(1);
         // translate the package under the drone
         packageMatrix *= transform3D::Translate(0, -package.scale - 0.2f, 0);
-
         packageMatrix *= transform3D::Translate(drone.position.x, drone.position.y, drone.position.z);
         packageMatrix *= transform3D::RotateOY(drone.angleOY);
         packageMatrix *= transform3D::RotateOY(M_PI_4);
         packageMatrix *= transform3D::Scale(package.scale, package.scale, package.scale);
 
         RenderMesh(meshes["package"], shaders["VertexColor"], packageMatrix);
+    }
+}
 
-        // also render the destination location disk
+void Tema2::RenderLocation() {
+    if (!package.isInTransit) {
+        // render the source location disk
+        RenderPackageSrcLocationDisk();
+    } else {
+        // render the destination location disk
         RenderPackageDstLocationDisk();
     }
+}
 
-    RenderPackageLocationArrow();
+void Tema2::RenderLocationOnMinimap() {
+    if (!package.isInTransit) {
+        // render the source location disk
+        RenderPackageSrcLocationDiskMinimap();
+    }
+    else {
+        // render the destination location disk
+        RenderPackageDstLocationDiskMinimap();
+    }
 }
 
 void Tema2::RenderPackageSrcLocationDisk() {
-    // render package at source location
-    glm::mat4 packageMatrix = glm::mat4(1);
-    packageMatrix *= transform3D::Translate(package.sourceLocation.x, package.sourceLocation.y, package.sourceLocation.z);
-    packageMatrix *= transform3D::Translate(-(float)terrain.n / 2, 0, -(float)terrain.m / 2);
-    packageMatrix *= transform3D::Scale(packageLocationRadius, packageLocationRadius, packageLocationRadius);
+    // render source location disk
+    glm::mat4 diskMatrix = glm::mat4(1);
+    diskMatrix *= transform3D::Translate(package.sourceLocation.x, package.sourceLocation.y, package.sourceLocation.z);
+    diskMatrix *= transform3D::Translate(-(float)terrain.n / 2, 0, -(float)terrain.m / 2);
+    diskMatrix *= transform3D::Scale(packageLocationRadius, packageLocationRadius, packageLocationRadius);
 
-    RenderMesh(meshes["package-source-location-disk"], shaders["VertexColor"], packageMatrix);
+    RenderMesh(meshes["package-source-location-disk"], shaders["VertexColor"], diskMatrix);
 }
 
-void Tema2::RenderPackageDstLocationDisk() {
-    // render package at source location
-    glm::mat4 packageMatrix = glm::mat4(1);
-    packageMatrix *= transform3D::Translate(package.destinationLocation.x, package.destinationLocation.y, package.destinationLocation.z);
-    packageMatrix *= transform3D::Translate(-(float)terrain.n / 2, 0, -(float)terrain.m / 2);
-    packageMatrix *= transform3D::Scale(packageLocationRadius, packageLocationRadius, packageLocationRadius);
+void Tema2::RenderPackageSrcLocationDiskMinimap() {
+    // render source location disk for minimap
+    glm::mat4 diskMatrix = glm::mat4(1);
+    diskMatrix *= transform3D::Translate(package.sourceLocation.x, package.sourceLocation.y, package.sourceLocation.z);
+    diskMatrix *= transform3D::Translate(-(float)terrain.n / 2, 0, -(float)terrain.m / 2);
+    diskMatrix *= transform3D::Scale(3*packageLocationRadius, 3*packageLocationRadius, 3*packageLocationRadius);
 
-    RenderMesh(meshes["package-destination-location-disk"], shaders["VertexColor"], packageMatrix);
+    RenderMesh(meshes["package-source-location-disk"], shaders["VertexColor"], diskMatrix);
+}
+
+
+void Tema2::RenderPackageDstLocationDisk() {
+    // render destination location disk
+    glm::mat4 diskMatrix = glm::mat4(1);
+    diskMatrix *= transform3D::Translate(package.destinationLocation.x, package.destinationLocation.y, package.destinationLocation.z);
+    diskMatrix *= transform3D::Translate(-(float)terrain.n / 2, 0, -(float)terrain.m / 2);
+    diskMatrix *= transform3D::Scale(packageLocationRadius, packageLocationRadius, packageLocationRadius);
+
+    RenderMesh(meshes["package-destination-location-disk"], shaders["VertexColor"], diskMatrix);
+}
+
+void Tema2::RenderPackageDstLocationDiskMinimap() {
+    // render destination location disk for minimap
+    glm::mat4 diskMatrix = glm::mat4(1);
+    diskMatrix *= transform3D::Translate(package.destinationLocation.x, package.destinationLocation.y, package.destinationLocation.z);
+    diskMatrix *= transform3D::Translate(-(float)terrain.n / 2, 0, -(float)terrain.m / 2);
+    diskMatrix *= transform3D::Scale(3*packageLocationRadius, 3*packageLocationRadius, 3*packageLocationRadius);
+
+    RenderMesh(meshes["package-destination-location-disk"], shaders["VertexColor"], diskMatrix);
 }
 
 void Tema2::RenderPackageLocationArrow() {
 
     if (!package.isInTransit) {
         // render package at source location
-        glm::mat4 packageMatrix = glm::mat4(1);
-        packageMatrix *= transform3D::Translate(drone.position.x, drone.position.y + 0.3f, drone.position.z);
-        packageMatrix *= transform3D::RotateOY(M_PI_2 + getAngleBetweenPoints(glm::vec2(drone.position.x, -drone.position.z), glm::vec2(package.sourceLocation.x  - (float)terrain.n / 2, -package.sourceLocation.z + (float)terrain.m / 2)));
-        packageMatrix *= transform3D::Scale(PACKAGE_ARROW_SIZE, PACKAGE_ARROW_SIZE, PACKAGE_ARROW_SIZE);
+        glm::mat4 arrowMatrix = glm::mat4(1);
+        arrowMatrix *= transform3D::Translate(drone.position.x, drone.position.y + 0.3f, drone.position.z);
+        arrowMatrix *= transform3D::RotateOY(M_PI_2 + getAngleBetweenPoints(glm::vec2(drone.position.x, -drone.position.z), glm::vec2(package.sourceLocation.x - (float)terrain.n / 2, -package.sourceLocation.z + (float)terrain.m / 2)));
+        arrowMatrix *= transform3D::Scale(PACKAGE_ARROW_SIZE, PACKAGE_ARROW_SIZE, PACKAGE_ARROW_SIZE);
 
-        RenderMesh(meshes["package-location-arrow"], shaders["VertexColor"], packageMatrix);
-    } else {
-        // render package at source location
-        glm::mat4 packageMatrix = glm::mat4(1);
-        packageMatrix *= transform3D::Translate(drone.position.x, drone.position.y + 0.3f, drone.position.z);
-        packageMatrix *= transform3D::RotateOY(M_PI_2 + getAngleBetweenPoints(glm::vec2(drone.position.x, -drone.position.z), glm::vec2(package.destinationLocation.x - (float)terrain.n / 2, -package.destinationLocation.z + (float)terrain.m / 2)));
-        packageMatrix *= transform3D::Scale(PACKAGE_ARROW_SIZE, PACKAGE_ARROW_SIZE, PACKAGE_ARROW_SIZE);
-
-        RenderMesh(meshes["package-location-arrow"], shaders["VertexColor"], packageMatrix);
+        RenderMesh(meshes["package-location-arrow"], shaders["VertexColor"], arrowMatrix);
     }
+    else {
+        // render package at destination location
+        glm::mat4 arrowMatrix = glm::mat4(1);
+        arrowMatrix *= transform3D::Translate(drone.position.x, drone.position.y + 0.3f, drone.position.z);
+        arrowMatrix *= transform3D::RotateOY(M_PI_2 + getAngleBetweenPoints(glm::vec2(drone.position.x, -drone.position.z), glm::vec2(package.destinationLocation.x - (float)terrain.n / 2, -package.destinationLocation.z + (float)terrain.m / 2)));
+        arrowMatrix *= transform3D::Scale(PACKAGE_ARROW_SIZE, PACKAGE_ARROW_SIZE, PACKAGE_ARROW_SIZE);
+
+        RenderMesh(meshes["package-location-arrow"], shaders["VertexColor"], arrowMatrix);
+    }
+}
+
+void Tema2::RenderDroneLocationMinimapArrow() {
+    // render arrow pointing to drone direction
+    glm::mat4 arrowMatrix = glm::mat4(1);
+    arrowMatrix *= transform3D::Translate(drone.position.x, drone.position.y + 0.3f, drone.position.z);
+    arrowMatrix *= transform3D::RotateOY(M_PI + drone.angleOY);
+    arrowMatrix *= transform3D::Scale(PACKAGE_ARROW_SIZE*20, PACKAGE_ARROW_SIZE*20, PACKAGE_ARROW_SIZE*20);
+
+    RenderMesh(meshes["drone-location-minimap-arrow"], shaders["VertexColor"], arrowMatrix);
 }
 
 void Tema2::DrawHUD()
@@ -600,15 +677,12 @@ void Tema2::DrawHUD()
 
     int rowIndex = 0;
     std::string polygonModeText = "";
-
     polygonModeText = "solid";
-
     glm::ivec2 resolution = window->GetResolution();
 
     roundTextRenderer->RenderText("Score: " + to_string(score), resolution.x / 2 - 40.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
 
     chrono::duration<double> remainingTime = stopTime - chrono::high_resolution_clock::now();
-
     ostringstream strTime;
     strTime << fixed << setprecision(2) << remainingTime.count();
 
@@ -627,12 +701,11 @@ void Tema2::showCouldNotGeneratePackageLocation() {
 
     int rowIndex = 0;
     std::string polygonModeText = "";
-
     polygonModeText = "solid";
 
     glm::ivec2 resolution = window->GetResolution();
 
-    playAgainTextRenderer->RenderText("Could not generate new package location!", resolution.x / 2 - 435.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+    playAgainTextRenderer->RenderText("Error: Could not generate new package location!", resolution.x / 2 - 545.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
     playAgainTextRenderer->RenderText("Score: " + to_string(score), resolution.x / 2 - 70.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
     playAgainTextRenderer->RenderText("Click to play again!", resolution.x / 2 - 215.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
 }
@@ -643,7 +716,6 @@ void Tema2::showPlayAgainText() {
 
     int rowIndex = 0;
     std::string polygonModeText = "";
-
     polygonModeText = "solid";
 
     glm::ivec2 resolution = window->GetResolution();
@@ -653,39 +725,109 @@ void Tema2::showPlayAgainText() {
     playAgainTextRenderer->RenderText("Click to play again!", resolution.x / 2 - 215.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
 }
 
+void Tema2::RenderGameIntro() {
+    const float kTopY = 410.f;
+    const float kRowHeight = 155.f;
+
+    int rowIndex = 0;
+    std::string polygonModeText = "";
+    polygonModeText = "solid";
+
+    glm::ivec2 resolution = window->GetResolution();
+
+    titleTextRenderer->RenderText("Drone Delivery Game", resolution.x / 2 - 535.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+    playAgainTextRenderer->RenderText("Click to play!", resolution.x / 2 - 175.0f, kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+    subtextRenderer->RenderText("(c) Racovcen Laurentiu", resolution.x / 2 - 135.0f, 200 + kTopY + kRowHeight * rowIndex++, 1.0f, kTextColor);
+}
+
 void Tema2::Update(float deltaTimeSeconds)
 {
+    /* ---------- Draw main viewport ---------- */
+
+    // clears the color buffer (using the previously set color) and depth buffer
+    glClearColor(SKY_COLOR, 1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glm::ivec2 resolution = window->GetResolution();
+
+    // sets the screen area where to draw
+    glViewport(0, 0, resolution.x, resolution.y);
+
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     chrono::duration<double> remainingTime = stopTime - chrono::high_resolution_clock::now();
 
-    if (remainingTime.count() >= 0) {
+    if (!gameStarted) {
+        // show game intro
+        RenderGameIntro();
+    } else {
         if (!couldGeneratePackageLocation) {
             showCouldNotGeneratePackageLocation();
             if (playAgainClicked) {
-                // reset current map parameters
+                playAgainClicked = false;
+                // clear current map obstacles
                 trees.clear();
                 buildings.clear();
-                Init();
+                StartNewRound();
             }
-        } else {
+        }
+        else if (remainingTime.count() >= 0) {
             RenderDrone(deltaTimeSeconds);
             RenderTerrain();
             RenderTrees();
             RenderBuildings();
-            packageLocationRadiusStep += deltaTimeSeconds;
             RenderPackage();
+            RenderLocation();
             RenderPackageLocationArrow();
+            packageLocationRadiusStep += deltaTimeSeconds;
             DrawHUD();
-        }
-    } else {
-        showPlayAgainText();
-        if (playAgainClicked) {
-            playAgainClicked = false;
-            // reset current map obstacles
+
+            /* ---------- Draw minimap viewport ---------- */
+
+            // rotate camera on OX and reset OY angle
+            float newOYAngle = 0;
+            glm::quat cameraRotationOY = glm::angleAxis(newOYAngle, glm::vec3(0, 1, 0));
+            glm::quat cameraRotationOX = glm::angleAxis(-1.5f, glm::vec3(1, 0, 0));
+            glm::quat cameraRotation = cameraRotationOY * cameraRotationOX;
+            SimpleScene::GetSceneCamera()->SetRotation(cameraRotation);
+
+            glClear(GL_DEPTH_BUFFER_BIT);
+            glViewport(1500, 50, resolution.x / 7.0f, resolution.x / 7.0f);
+
+            // set up the orthographic projection for the minimap
+            float left = drone.position.x - 1.0f * TERRAIN_WIDTH / 2;
+            float right = drone.position.x + 1.0f * TERRAIN_WIDTH / 2;
+            float bottom = drone.position.z - 1.0f * TERRAIN_WIDTH / 2;
+            float top = drone.position.z + 1.0f * TERRAIN_WIDTH / 2;
+            float near = -1000.0f;
+            float far = 1000.0f;
+
+            // update the minimap's camera projection matrix to be orthographic
+            SimpleScene::GetSceneCamera()->SetOrthographic(left, right, bottom, top, near, far);
+
+            /* enable depth writing for the arrow,
+             * in order for the arrow to show over other objects */
+            glDepthMask(GL_FALSE);
+            RenderTerrain();
+            RenderTrees();
+            RenderBuildings();
+            RenderLocation();
+            RenderLocationOnMinimap();
+            RenderDroneLocationMinimapArrow();
+            glDepthMask(GL_TRUE);
+
+            // reset camera to perspective
+            SimpleScene::GetSceneCamera()->SetPerspective(90, 16.0f / 9, 0.01, 1000);
+        } else {
+            timeExpired = true;
+            showPlayAgainText();
+            // clear current map obstacles
             trees.clear();
             buildings.clear();
-            Init();
+            if (playAgainClicked) {
+                playAgainClicked = false;
+                StartNewRound();
+            }
         }
     }
     
@@ -790,12 +932,10 @@ bool Tema2::DroneCollidesWithATree(glm::vec3 dronePosition) {
         /* check if the drone collides with the tree's leaves */
         if ((dronePosition.y <= trees[i].position.y + (TREE_TRUNK_HEIGHT + TREE_LEAVES_HEIGHT + 2 * LEAVES_DISTANCE) * trees[i].scale)
             && (dronePosition.y > trees[i].position.y + (TREE_TRUNK_HEIGHT)*trees[i].scale)) {
-
-            // the drone is below the current tree's trunk,
-            // compare trunk and drone's positions
+            // the drone is below the current tree's leaves,
+            // compare leaves and drone's positions
             float trunkDiskRadius = trees[i].scale * 1.0f*LEAVES_DISK_SCALE/2;
             if (disksIntersect(dronePosition + 1.0f * terrain.n / 2, trees[i].position, trunkDiskRadius, 1.0f * DRONE_SIZE / 2)) {
-
                 return true;
             }
         }
@@ -814,7 +954,7 @@ bool Tema2::DroneCollidesWithPackage() {
     // compare the position of the building's top corners with the drone's position
 
     /* don't compare if the height of the building is lower
-        * than the height of the drone */
+     * than the height of the drone */
     if (package.sourceLocation.y + package.scale >= drone.position.y - DRONE_SIZE * 0.1f) {
         // top left corner
         float x = package.sourceLocation.x - package.scale / 2;
@@ -853,14 +993,13 @@ bool Tema2::DroneCollidesWithDestPackage() {
 void Tema2::OnInputUpdate(float deltaTime, int mods)
 {
     if (!gameInterrupted) {
-
         // compute drone's forward and right directions
         glm::vec3 forward = glm::vec3(sin(drone.angleOY), 0, cos(drone.angleOY));
         glm::vec3 right = glm::vec3(cos(drone.angleOY), 0, -sin(drone.angleOY));
 
         // go left
         if (window->KeyHold(GLFW_KEY_A) == true) {
-            // check if the drone does not collide with map's limits
+            // check if the drone does not collide with map's limits or obstacles
             if (!DroneCollidesWithMapLimits(drone.position - right * DRONE_SPEED * deltaTime)
                 && !DroneCollidesWithObstacles(drone.position - right * DRONE_SPEED * deltaTime))
             {
@@ -875,7 +1014,7 @@ void Tema2::OnInputUpdate(float deltaTime, int mods)
         // go right
         if (window->KeyHold(GLFW_KEY_D) == true) {
 
-            // check if the drone does not collide with map's limits
+            // check if the drone does not collide with map's limits or obstacles
             if (!DroneCollidesWithMapLimits(drone.position + right * DRONE_SPEED * deltaTime)
                 && !DroneCollidesWithObstacles(drone.position + right * DRONE_SPEED * deltaTime))
             {
@@ -891,7 +1030,7 @@ void Tema2::OnInputUpdate(float deltaTime, int mods)
         // go front
         if (window->KeyHold(GLFW_KEY_W) == true) {
 
-            // check if the drone does not collide with map's limits
+            // check if the drone does not collide with map's limits or obstacles
             if (!DroneCollidesWithMapLimits(drone.position - forward * DRONE_SPEED * deltaTime)
                 && !DroneCollidesWithObstacles(drone.position - forward * DRONE_SPEED * deltaTime))
             {
@@ -906,7 +1045,7 @@ void Tema2::OnInputUpdate(float deltaTime, int mods)
         // go back
         if (window->KeyHold(GLFW_KEY_S) == true) {
 
-            // check if the drone does not collide with map's limits
+            // check if the drone does not collide with map's limits or obstacles
             if (!DroneCollidesWithMapLimits(drone.position + forward * DRONE_SPEED * deltaTime)
                 && !DroneCollidesWithObstacles(drone.position + forward * DRONE_SPEED * deltaTime))
             {
@@ -987,27 +1126,28 @@ void Tema2::OnInputUpdate(float deltaTime, int mods)
 
 void Tema2::OnKeyPress(int key, int mods)
 {
-    /*if (key == GLFW_KEY_SPACE) {
-    }*/
 }
 
 void Tema2::OnKeyRelease(int key, int mods)
 {
 }
 
-
 void Tema2::OnMouseMove(int mouseX, int mouseY, int deltaX, int deltaY)
 {
 }
 
-
 void Tema2::OnMouseBtnPress(int mouseX, int mouseY, int button, int mods)
 {
-    if (button == GLFW_MOUSE_BUTTON_2) {
-        playAgainClicked = true;
-    }
+    if (!gameStarted) {
+        if (button == GLFW_MOUSE_BUTTON_2) {
+            gameStarted = true;
+        }
+    } else if (!couldGeneratePackageLocation || timeExpired) {
+        if (button == GLFW_MOUSE_BUTTON_2) {
+            playAgainClicked = true;
+        }
+    }    
 }
-
 
 void Tema2::OnMouseBtnRelease(int mouseX, int mouseY, int button, int mods)
 {
