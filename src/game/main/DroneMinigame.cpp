@@ -1075,38 +1075,6 @@ void DroneMinigame::OnInputUpdate(float deltaTime, int mods)
 
         }
 
-        // go up
-        if (window->KeyHold(GLFW_KEY_Q) == true) {
-
-            // check if the drone does not collide with an obstacle
-            if (!DroneCollidesWithTerrain(glm::vec3(drone.position.x, drone.position.y - DRONE_SPEED * deltaTime, drone.position.z))
-                && !DroneCollidesWithObstacles(glm::vec3(drone.position.x, drone.position.y - DRONE_SPEED * deltaTime, drone.position.z)))
-            {
-                // apply the position change to the drone
-                drone.position.y -= DRONE_SPEED * deltaTime;
-            }
-            else if (DroneCollidesWithObstacles(glm::vec3(drone.position.x, drone.position.y - DRONE_SPEED * deltaTime, drone.position.z))) {
-                // move the drone in the opposite direction
-                drone.position.y += OBSTACLE_THROW_DISTANCE * DRONE_SPEED * deltaTime;
-            }
-
-        }
-
-        // go down
-        if (window->KeyHold(GLFW_KEY_E) == true) {
-
-            // check if the drone does not collide with an obstacle
-            if (!DroneCollidesWithObstacles(glm::vec3(drone.position.x, drone.position.y + DRONE_SPEED * deltaTime, drone.position.z))) {
-                // apply the position change to the drone
-                drone.position.y += DRONE_SPEED * deltaTime;
-            }
-            else if (DroneCollidesWithObstacles(glm::vec3(drone.position.x, drone.position.y + DRONE_SPEED * deltaTime, drone.position.z))) {
-                // move the drone in the opposite direction
-                drone.position.y -= OBSTACLE_THROW_DISTANCE * DRONE_SPEED * deltaTime;
-            }
-
-        }
-
         /* rotate the drone according to mouse movements (with configurable sensitivity) */
 
         static double lastMouseX = 0;
