@@ -4,15 +4,15 @@
 #include <iomanip>
 
 #include "components/simple_scene.h"
-#include "lab_m1/Tema2/meshes/transform3D.h"
-#include "lab_m1/Tema2/drone/Drone.h"
-#include "lab_m1/Tema2/terrain/Terrain.h"
-#include "lab_m1/Tema2/obstacles/Tree.h"
-#include "lab_m1/Tema2/obstacles/Building.h"
-#include "lab_m1/Tema2/package/Package.h"
-#include "lab_m1/Tema2/basic_text/basic_text.h"
-#include "lab_m1/Tema2/random/Random.h"
-#include "lab_m1/Tema2/minimap/Minimap.h"
+#include "game/meshes/transform3D.h"
+#include "game/drone/Drone.h"
+#include "game/terrain/Terrain.h"
+#include "game/obstacles/Tree.h"
+#include "game/obstacles/Building.h"
+#include "game/package/Package.h"
+#include "game/basic_text/basic_text.h"
+#include "game/random/Random.h"
+#include "game/minimap/Minimap.h"
 
 #define LEAVES_DISK_SCALE      3
 #define TREE_TRUNK_HEIGHT      5
@@ -21,11 +21,11 @@
 
 namespace m1
 {
-    class Tema2 : public gfxc::SimpleScene
+    class DroneMinigame : public gfxc::SimpleScene
     {
     public:
-        Tema2();
-        ~Tema2();
+        DroneMinigame();
+        ~DroneMinigame();
 
         void Init() override;
 
@@ -114,6 +114,7 @@ namespace m1
         bool couldGeneratePackageLocation;
         bool gameStarted;
         bool gameInterrupted;
+        bool cursorIsHidden;
 
         /* mini-map */
         Minimap minimap;
