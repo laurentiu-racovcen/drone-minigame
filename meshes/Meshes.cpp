@@ -2,8 +2,8 @@
 
 #include <iostream>
 
-#include "lab_m1/Tema2/main/Tema2.h"
-#include "lab_m1/Tema2/meshes/transform3D.h"
+#include "game/main/DroneMinigame.h"
+#include "game/meshes/transform3D.h"
 
 using namespace std;
 using namespace m1;
@@ -19,7 +19,7 @@ using namespace m1;
 #define PACKAGE_SRC_LOCATION_DISK_COLOR  1, 1, 0
 #define PACKAGE_DST_LOCATION_DISK_COLOR  1, 0, 0
 
-void Tema2::CreateMesh(const char* name, const std::vector<VertexFormat>& vertices, const std::vector<unsigned int>& indices)
+void DroneMinigame::CreateMesh(const char* name, const std::vector<VertexFormat>& vertices, const std::vector<unsigned int>& indices)
 {
     Mesh *newMesh = new Mesh(name);
     newMesh->vertices = vertices;
@@ -75,7 +75,7 @@ void Tema2::CreateMesh(const char* name, const std::vector<VertexFormat>& vertic
     meshes[name]->InitFromBuffer(VAO, static_cast<unsigned int>(indices.size()));
 }
 
-void Tema2::CreateTerrainMesh(const char* name, const std::vector<VertexFormat>& vertices,
+void DroneMinigame::CreateTerrainMesh(const char* name, const std::vector<VertexFormat>& vertices,
                                const std::vector<unsigned int>& indices)
 {
     Mesh* newMesh = new Mesh(name);
@@ -142,7 +142,7 @@ void Tema2::CreateTerrainMesh(const char* name, const std::vector<VertexFormat>&
     meshes[name]->InitFromBuffer(VAO, static_cast<unsigned int>(indices.size()));
 }
 
-void Tema2::RenderTerrainMesh(Mesh* mesh, Shader* shader, const glm::mat4& modelMatrix)
+void DroneMinigame::RenderTerrainMesh(Mesh* mesh, Shader* shader, const glm::mat4& modelMatrix)
 {
     if (!mesh || !shader || !shader->GetProgramID())
         return;
@@ -178,7 +178,7 @@ void Tema2::RenderTerrainMesh(Mesh* mesh, Shader* shader, const glm::mat4& model
     glDrawElements(mesh->GetDrawMode(), static_cast<int>(mesh->indices.size()), GL_UNSIGNED_INT, 0);
 }
 
-void Tema2::AddDroneMesh()
+void DroneMinigame::AddDroneMesh()
 {
     vector<VertexFormat> vertices
     {
@@ -395,7 +395,7 @@ void Tema2::AddDroneMesh()
     CreateMesh("drone", vertices, indices);
 }
 
-void Tema2::AddDronePropellerMesh()
+void DroneMinigame::AddDronePropellerMesh()
 {
     vector<VertexFormat> vertices
     {
@@ -415,7 +415,7 @@ void Tema2::AddDronePropellerMesh()
     CreateMesh("drone-propeller", vertices, indices);
 }
 
-void Tema2::AddTerrainMesh(Terrain *terrain)
+void DroneMinigame::AddTerrainMesh(Terrain *terrain)
 {
     vector<VertexFormat> vertices;
 
@@ -450,7 +450,7 @@ void Tema2::AddTerrainMesh(Terrain *terrain)
     CreateTerrainMesh("terrain", vertices, indices);
 }
 
-void Tema2::AddTreeMesh()
+void DroneMinigame::AddTreeMesh()
 {
     /* ----------- compute tree trunk mesh ----------- */
 
@@ -662,7 +662,7 @@ void Tema2::AddTreeMesh()
     CreateMesh("tree", vertices, indices);
 }
 
-void Tema2::AddBuildingMesh()
+void DroneMinigame::AddBuildingMesh()
 {
     vector<VertexFormat> vertices
     {
@@ -704,7 +704,7 @@ void Tema2::AddBuildingMesh()
     CreateMesh("building", vertices, indices);
 }
 
-void Tema2::AddPackageMesh()
+void DroneMinigame::AddPackageMesh()
 {
     vector<VertexFormat> vertices
     {
@@ -746,7 +746,7 @@ void Tema2::AddPackageMesh()
     CreateMesh("package", vertices, indices);
 }
 
-void Tema2::AddPackageSrcLocationMesh()
+void DroneMinigame::AddPackageSrcLocationMesh()
 {
     unsigned int k = 50;
     vector<VertexFormat> vertices;
@@ -777,7 +777,7 @@ void Tema2::AddPackageSrcLocationMesh()
     CreateMesh("package-source-location-disk", vertices, indices);
 }
 
-void Tema2::AddPackageDstLocationMesh()
+void DroneMinigame::AddPackageDstLocationMesh()
 {
     unsigned int k = 50;
     vector<VertexFormat> vertices;
@@ -808,7 +808,7 @@ void Tema2::AddPackageDstLocationMesh()
     CreateMesh("package-destination-location-disk", vertices, indices);
 }
 
-void Tema2::AddPackageLocationArrowMesh()
+void DroneMinigame::AddPackageLocationArrowMesh()
 {
     vector<VertexFormat> vertices
     {
@@ -828,7 +828,7 @@ void Tema2::AddPackageLocationArrowMesh()
     CreateMesh("package-location-arrow", vertices, indices);
 }
 
-void Tema2::AddDroneLocationMinimapArrowMesh()
+void DroneMinigame::AddDroneLocationMinimapArrowMesh()
 {
     vector<VertexFormat> vertices
     {

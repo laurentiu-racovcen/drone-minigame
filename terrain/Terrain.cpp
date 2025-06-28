@@ -1,5 +1,5 @@
-#include "lab_m1/Tema2/terrain/Terrain.h"
-#include "lab_m1/Tema2/random/Random.h"
+#include "game/terrain/Terrain.h"
+#include "game/random/Random.h"
 
 #include <tuple>
 

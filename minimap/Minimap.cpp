@@ -1,4 +1,4 @@
-#include "lab_m1/Tema2/minimap/Minimap.h"
+#include "game/minimap/Minimap.h"
 
 #include <tuple>
 
