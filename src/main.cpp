@@ -25,7 +25,6 @@ int main(int argc, char **argv)
     WindowProperties wp;
     wp.resolution = glm::ivec2(1920, 1080);
     wp.vSync = true;
-    //wp.fullScreen = true;
     wp.selfDir = GetParentDir(std::string(argv[0]));
 
     // Init the Engine and create a new window with the defined properties
