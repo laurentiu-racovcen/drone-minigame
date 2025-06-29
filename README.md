@@ -2,6 +2,9 @@
 
 >This is a 3D drone delivery game where the player controls a drone to collect and deliver packages within a period of time. The player navigates through a terrain with trees and buildings as obstacles, earning points for successful deliveries.
 
+![Image 1](images/img1.png)
+![Image 2](images/img2.png)
+
 ## **Table of contents**
 
 1. [Introduction](#introduction)
